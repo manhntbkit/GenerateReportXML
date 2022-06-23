@@ -79,7 +79,6 @@ public class WriteXmlDom1 {
 //        nameElement.setTextContent(tagValue);
 //        parentElement.appendChild(nameElement);
 
-
         // write dom document to a file
         try (FileOutputStream output =
                      new FileOutputStream("src//data//xml//staff-dom.xml")) {
@@ -107,17 +106,12 @@ public class WriteXmlDom1 {
     private static void writeXml(Document doc,
                                  OutputStream output)
             throws TransformerException {
-
         TransformerFactory transformerFactory = TransformerFactory.newInstance();
         Transformer transformer = transformerFactory.newTransformer();
-
         // pretty print
         transformer.setOutputProperty(OutputKeys.INDENT, "yes");
-
         DOMSource source = new DOMSource(doc);
         StreamResult result = new StreamResult(output);
-
         transformer.transform(source, result);
-
     }
 }
