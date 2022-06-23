@@ -25,7 +25,11 @@ public class WriteXmlDom1 {
         //read json file.
         String dataString = "";
         try {
-            File myObj = new File("//Users///manh//Desktop//DWS_Report//jsonReport//response1.json");
+            //File myObj = new File("//Users///manh//Desktop//DWS_Report//jsonReport//response1.json");
+            File directory = new File("./");
+            System.out.println("getAbsolutePath:::" + directory.getAbsolutePath());
+
+            File myObj = new File("src//data//json//response1.json");
             Scanner myReader = new Scanner(myObj);
             while (myReader.hasNextLine()) {
                 dataString += myReader.nextLine();
@@ -69,15 +73,16 @@ public class WriteXmlDom1 {
         //currency
         createElement(doc, "currency","GBP", reportElement);
 
+
         //create colunm:
-        Element nameElement = doc.createElement(tagName);
-        nameElement.setTextContent(tagValue);
-        parentElement.appendChild(nameElement);
+//        Element nameElement = doc.createElement(tagName);
+//        nameElement.setTextContent(tagValue);
+//        parentElement.appendChild(nameElement);
 
 
         // write dom document to a file
         try (FileOutputStream output =
-                     new FileOutputStream("//Users///manh//Desktop//DWS_Report//staff-dom.xml")) {
+                     new FileOutputStream("src//data//xml//staff-dom.xml")) {
             writeXml(doc, output);
         } catch (IOException e) {
             e.printStackTrace();
