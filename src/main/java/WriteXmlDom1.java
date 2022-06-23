@@ -72,8 +72,7 @@ public class WriteXmlDom1 {
         createElement(doc, "reportType",convertName((String)map.get("module")), reportElement);
         //currency
         createElement(doc, "currency","GBP", reportElement);
-
-
+        
         //create colunm:
 //        Element nameElement = doc.createElement(tagName);
 //        nameElement.setTextContent(tagValue);
