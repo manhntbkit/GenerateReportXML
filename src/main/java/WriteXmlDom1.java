@@ -1,5 +1,7 @@
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import org.w3c.dom.CDATASection;
 import org.w3c.dom.Comment;
 import org.w3c.dom.Document;
@@ -12,6 +14,8 @@ import javax.xml.transform.*;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 import java.io.*;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
 import com.github.underscore.U;
@@ -25,9 +29,6 @@ public class WriteXmlDom1 {
         //read json file.
         String dataString = "";
         try {
-            //File myObj = new File("//Users///manh//Desktop//DWS_Report//jsonReport//response1.json");
-            File directory = new File("./");
-            System.out.println("getAbsolutePath:::" + directory.getAbsolutePath());
 
             File myObj = new File("src//data//json//response1.json");
             Scanner myReader = new Scanner(myObj);
@@ -52,6 +53,7 @@ public class WriteXmlDom1 {
         for (Map.Entry<String, Object> entry : map.entrySet()) {
             System.out.println("Key:: " + entry.getKey() + " Value : " + entry.getValue());
         }
+        String objectName = (String)map.get("module");
 
         //convert Java class to XML elements.
 
@@ -72,11 +74,46 @@ public class WriteXmlDom1 {
         createElement(doc, "reportType",convertName((String)map.get("module")), reportElement);
         //currency
         createElement(doc, "currency","GBP", reportElement);
-        
-        //create colunm:
-//        Element nameElement = doc.createElement(tagName);
-//        nameElement.setTextContent(tagValue);
-//        parentElement.appendChild(nameElement);
+
+        //create colunms:
+        List<List<String>> recordsList = ReadCSV.readFile();
+        Map<String, List<String>>  rowMappingByKey = new HashMap<String, List<String>>();
+        for(List<String> records: recordsList){
+            rowMappingByKey.put(records.get(0), records);
+        }
+
+        String contentJson = (String)map.get("content");
+        ContentWrapper content = new Gson().fromJson(contentJson, ContentWrapper.class);
+        for (ContentWrapper.ColumnObj col: content.display_columns) {
+            String tableKey = col.getTable_key();
+            String keyMap = "";
+            if(tableKey.contains(":")){
+                keyMap = tableKey.split(":")[1] + ':' + col.getName();
+            }
+            if(tableKey.equals("self")){
+                keyMap = objectName + ":" + col.getName();
+            }
+            //else{
+                //keyMap = tableKey + ':' + col.getName();
+            //}
+
+            //:accounts:name => ACCOUNT_NAME
+            List<String> rowRecords = rowMappingByKey.get(keyMap);
+            if(rowRecords != null && rowRecords.size() == 2){
+                createColumnElement(doc,rowRecords.get(1), reportElement);
+            }
+
+//            if(tableKey.contains(":accounts") && "name".equals(col.getName())  ){
+//                createColumnElement(doc,"ACCOUNT_NAME", reportElement);
+//            }
+//            if(tableKey.contains(":accounts") && "region_c".equals(col.getName())  ){
+//                createColumnElement(doc,"Account.DWS_Region__c", reportElement);
+//            }
+//            if(tableKey.contains(":accounts") && "account_type".equals(col.getName())  ){
+//                createColumnElement(doc,"ACCOUNT_TYPE", reportElement);
+//            }
+
+        }
 
         // write dom document to a file
         try (FileOutputStream output =
@@ -99,6 +136,13 @@ public class WriteXmlDom1 {
         Element nameElement = doc.createElement(tagName);
         nameElement.setTextContent(tagValue);
         parentElement.appendChild(nameElement);
+    }
+
+    private static void createColumnElement(Document doc, String columnValue, Element reportElement){
+        Element columnElement = doc.createElement("columns");
+        createElement(doc, "field",columnValue, columnElement);
+        reportElement.appendChild(columnElement);
+
     }
 
     // write doc to output stream
