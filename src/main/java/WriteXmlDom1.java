@@ -1,3 +1,5 @@
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.gson.Gson;
@@ -14,10 +16,10 @@ import javax.xml.transform.*;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 import java.io.*;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Scanner;
+import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
 import com.github.underscore.U;
 import org.xml.sax.InputSource;
 
@@ -25,12 +27,20 @@ public class WriteXmlDom1 {
 
     public static void main(String[] args)
             throws ParserConfigurationException, TransformerException, IOException {
+        Set<String> names = Stream.of(new File("src//data//json").listFiles())
+                .filter(file -> !file.isDirectory())
+                .map(File::getName)
+                .collect(Collectors.toSet());
+        for(String jsonPath : names){
+            json2xml("src//data//json//" + jsonPath);
+        }
+    }
 
+    private static void json2xml(String jsonPath) throws JsonProcessingException, ParserConfigurationException {
         //read json file.
         String dataString = "";
         try {
-
-            File myObj = new File("src//data//json//response1.json");
+            File myObj = new File(jsonPath);
             Scanner myReader = new Scanner(myObj);
             while (myReader.hasNextLine()) {
                 dataString += myReader.nextLine();
@@ -42,17 +52,11 @@ public class WriteXmlDom1 {
             e.printStackTrace();
         }
 
-        //convert json string to Java class.
-//        ObjectMapper mapper = new ObjectMapper();
-//        JSONWrapper JSONwrap = mapper.readValue(dataString, JSONWrapper.class);
-
         ObjectMapper mapper = new ObjectMapper();
+        mapper.configure(JsonParser.Feature.ALLOW_BACKSLASH_ESCAPING_ANY_CHARACTER, true);
         Map<String, Object> map
                 = mapper.readValue(dataString, new TypeReference<Map<String,Object>>(){});
 
-        for (Map.Entry<String, Object> entry : map.entrySet()) {
-            System.out.println("Key:: " + entry.getKey() + " Value : " + entry.getValue());
-        }
         String objectName = (String)map.get("module");
 
         //convert Java class to XML elements.
@@ -65,7 +69,7 @@ public class WriteXmlDom1 {
         Element reportElement = doc.createElement("Report");
         reportElement.setAttribute("xmlns", "http://soap.sforce.com/2006/04/metadata");
         doc.appendChild(reportElement);
-        
+
         //name
         createElement(doc, "name",(String)map.get("name"), reportElement);
         //format
@@ -84,45 +88,61 @@ public class WriteXmlDom1 {
 
         String contentJson = (String)map.get("content");
         ContentWrapper content = new Gson().fromJson(contentJson, ContentWrapper.class);
+        int totalColumn = 0;
+        List<String> columnsNotMapped = new ArrayList<>();
         for (ContentWrapper.ColumnObj col: content.display_columns) {
             String tableKey = col.getTable_key();
             String keyMap = "";
-            if(tableKey.contains(":")){
+            if(col.getName().equals("date_entered") || col.getName().equals("user_name")
+                    || col.getName().equals("full_name")){
+                keyMap = col.getName();
+            } else if(tableKey.contains(":")){
                 keyMap = tableKey.split(":")[1] + ':' + col.getName();
-            }
-            if(tableKey.equals("self")){
+            } else if(tableKey.equals("self")){
                 keyMap = objectName + ":" + col.getName();
             }
             //else{
-                //keyMap = tableKey + ':' + col.getName();
+            //keyMap = tableKey + ':' + col.getName();
             //}
 
             //:accounts:name => ACCOUNT_NAME
             List<String> rowRecords = rowMappingByKey.get(keyMap);
             if(rowRecords != null && rowRecords.size() == 2){
+                totalColumn++;
                 createColumnElement(doc,rowRecords.get(1), reportElement);
+            }else{
+                columnsNotMapped.add(keyMap);
             }
-
-//            if(tableKey.contains(":accounts") && "name".equals(col.getName())  ){
-//                createColumnElement(doc,"ACCOUNT_NAME", reportElement);
-//            }
-//            if(tableKey.contains(":accounts") && "region_c".equals(col.getName())  ){
-//                createColumnElement(doc,"Account.DWS_Region__c", reportElement);
-//            }
-//            if(tableKey.contains(":accounts") && "account_type".equals(col.getName())  ){
-//                createColumnElement(doc,"ACCOUNT_TYPE", reportElement);
-//            }
-
         }
 
         // write dom document to a file
+        String outputFileName = (String)((String) map.get("name"))
+                .replace("/", " ")
+                .replace("<", " ")
+                .replace(">", " ")
+                .replace(":", " ")
+                .replace("\\", " ")
+                .replace("|", " ")
+                .replace("?", " ")
+                .replace("*", " ");
         try (FileOutputStream output =
-                     new FileOutputStream("src//data//xml//staff-dom.xml")) {
+                     new FileOutputStream("src//data//xml//" + outputFileName + ".xml")) {
             writeXml(doc, output);
-        } catch (IOException e) {
+        } catch (IOException | TransformerException e) {
             e.printStackTrace();
         }
+
+        // log errors
+        if(content.display_columns.size() != totalColumn){
+            System.out.println("=====================================================================================");
+            System.out.println("File name error: " + outputFileName);
+            System.out.println("Total column in json: " + content.display_columns.size());
+            System.out.println("Total column in xml: " + totalColumn);
+            System.out.println("Columns not mapped: " + columnsNotMapped);
+            System.out.println("=====================================================================================");
+        }
     }
+
     private static String convertName(String inputName){
         String returnString = "";
         switch (inputName){
