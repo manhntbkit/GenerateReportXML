@@ -1,3 +1,8 @@
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.HttpClientBuilder;
+
 import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -30,23 +35,25 @@ public class Report {
         HttpURLConnection con = (HttpURLConnection) url.openConnection();
         con.setRequestMethod("GET");
         con.setRequestProperty("Content-Type", "application/json");
-
-        con.setRequestProperty("Authorization", "Bearer 0621fab7-9966-44f6-8e91-838f6f9438f7");
-
+        con.setRequestProperty("Authorization", "Bearer d1cbe7eb-b28a-43b2-896b-8a1006af51ff");
 
 
-        Map<String, List<Map<String, String>>> parameters = new HashMap<>();
-        List<Map<String, String>> filters = new ArrayList<Map<String, String>>();
-        Map<String, String> filterItemts = new HashMap<>();
-        filterItemts.put("name", reportName);
-        filters.add(filterItemts);
-        parameters.put("filter", filters);
+con.setDoOutput(true);
+        OutputStream os = con.getOutputStream();
+        OutputStreamWriter osw = new OutputStreamWriter(os, "UTF-8");
+        osw.write("{\n" +
+                "    \"filter\":[\n" +
+                "            {\n" +
+                "                \"name\":\"Partner Review, Open Oppties by Stage\"\n" +
+                "            }\n" +
+                "        ]\n" +
+                "}");
+        osw.flush();
+        osw.close();
+        os.close();  //don't forget to close the OutputStream
+        con.connect();
 
-        con.setDoOutput(true);
-        DataOutputStream out = new DataOutputStream(con.getOutputStream());
-//        out.writeBytes(getParamsString(parameters));
-        out.flush();
-        out.close();
+
 
         BufferedReader in = new BufferedReader(
                 new InputStreamReader(con.getInputStream()));
@@ -75,4 +82,24 @@ public class Report {
         //close the stream
         bwr.close();
     }
+
+    public static String getParamsString(Map<String, String> params)
+            throws UnsupportedEncodingException{
+        StringBuilder result = new StringBuilder();
+
+        for (Map.Entry<String, String> entry : params.entrySet()) {
+            result.append(URLEncoder.encode(entry.getKey(), "UTF-8"));
+            result.append("=");
+            result.append(URLEncoder.encode(entry.getValue(), "UTF-8"));
+            result.append("&");
+        }
+
+        String resultString = result.toString();
+        return resultString.length() > 0
+                ? resultString.substring(0, resultString.length() - 1)
+                : resultString;
+    }
+
+
+
 }
