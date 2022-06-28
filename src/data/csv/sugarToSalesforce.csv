@@ -33,7 +33,7 @@ Opportunities:amount,AMOUNT
 Opportunities:terminate_and_replace_c,Opportunity.DWS_Terminated_and_Replaced__c
 Opportunities:invoicing_notes_c,Opportunity.DWS_Invoicing_Notes__c
 Opportunities:partner_txn_value_c,Opportunity.DWS_Partner_Txn_Value__c
-date_modified,LAST_UPDATE
+Opportunities:date_modified,LAST_UPDATE
 modified_by_name,LAST_UPDATE_BY
 Opportunities:next_step,NEXT_STEP
 Opportunities:payment_terms_dd_c,Opportunity.DWS_Payment_Terms__c

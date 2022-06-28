@@ -30,9 +30,9 @@ public class Report {
             System.out.println("An error occurred.");
             e.printStackTrace();
         }
-        //for(String name : reportsName){
-            saveReport2File("Opportunity Data for Board");
-        //}
+        for(String name : reportsName){
+            saveReport2File(name);
+        }
 
     }
 
@@ -43,29 +43,16 @@ public class Report {
         HttpURLConnection con = (HttpURLConnection) url.openConnection();
         con.setRequestMethod("GET");
         con.setRequestProperty("Content-Type", "application/json");
-        con.setRequestProperty("Authorization", "Bearer a5fe7471-aa78-48c2-86ae-cbc8d4004ffa");
-
-//        con.setDoOutput(true);
-//        OutputStream os = con.getOutputStream();
-//        OutputStreamWriter osw = new OutputStreamWriter(os, "UTF-8");
-//        osw.write("{\n" +
-//                "    \"filter\":[\n" +
-//                "            {\n" +
-//                "                \"name\":\"" +  reportName + "\"\n" +
-//                "            }\n" +
-//                "        ]\n" +
-//                "}");
-//        osw.flush();
-//        osw.close();
-//        os.close();  //don't forget to close the OutputStream
-
+        con.setRequestProperty("Authorization", "Bearer 764ad429-7d5f-48de-8349-a599344a7d07");
         con.connect();
 
         BufferedReader in = new BufferedReader(
                 new InputStreamReader(con.getInputStream()));
         String inputLine;
         StringBuffer content = new StringBuffer();
+
         while ((inputLine = in.readLine()) != null) {
+
             content.append(inputLine);
         }
         in.close();
@@ -85,15 +72,22 @@ public class Report {
         Gson gson = new GsonBuilder().create();
         SugarResponse sugarRes = gson.fromJson(content.toString(), SugarResponse.class);
         //String jsonString = (String) sugarRes.records.get(0);
-        JsonObject jsonObject = gson.toJsonTree(sugarRes.records.get(0)).getAsJsonObject();
-        String jsonString = jsonObject.toString();
-        bwr.write(jsonString);
+        try {
+            JsonObject jsonObject = gson.toJsonTree(sugarRes.records.get(0)).getAsJsonObject();
+            String jsonString = jsonObject.toString();
+            bwr.write(jsonString);
 
-        //flush the stream
-        bwr.flush();
+            //flush the stream
+            bwr.flush();
 
-        //close the stream
-        bwr.close();
+            //close the stream
+            bwr.close();
+        }catch (Exception e){
+            System.out.println("==> " + reportName);
+            System.out.println(e.getMessage());
+            System.out.println(e.getStackTrace());
+        }
+
     }
 
     public static String getParamsString(Map<String, String> params)

@@ -115,6 +115,22 @@ public class WriteXmlDom1 {
             }
         }
 
+        //filter
+        ContentWrapper.FiltersDef filtersDef = content.filters_def;
+        String operator = filtersDef.Filter_1.get("operator").toString();
+        List<ContentWrapper.Filter> filters = new ArrayList<>();
+        for (Map.Entry<String, Object> entry : filtersDef.Filter_1.entrySet()) {
+            if(!entry.getKey().equalsIgnoreCase("operator")){
+                filters.add(mapper.convertValue(entry.getValue(), ContentWrapper.Filter.class));
+            }
+        }
+
+        Element filterElement = doc.createElement("filter");
+        for(ContentWrapper.Filter filter : filters){
+            createCriteriaItems(doc, filterElement, filter, rowMappingByKey, objectName);
+        }
+        reportElement.appendChild(filterElement);
+
         // write dom document to a file
         String outputFileName = (String)((String) map.get("name"))
                 .replace("/", " ")
@@ -143,6 +159,47 @@ public class WriteXmlDom1 {
         }
     }
 
+    private static void createCriteriaItems(Document doc, Element filterElement, ContentWrapper.Filter filter, Map<String, List<String>>  rowMappingByKey, String objectName){
+        Element criteriaItemsElement = doc.createElement("criteriaItems");
+        String col = filter.getName();
+        String keyMap = "";
+        String tableKey = filter.getTable_key();
+        if(col.equals("date_entered") || col.equals("user_name")
+                || col.equals("full_name")){
+            keyMap = col;
+        } else if(tableKey.contains(":")){
+            keyMap = tableKey.split(":")[1] + ':' + col;
+        } else if(tableKey.equals("self")){
+            keyMap = objectName + ":" + col;
+        }
+        createElement(doc, "column", rowMappingByKey.get(keyMap).get(1), criteriaItemsElement);
+        createElement(doc, "columnToColumn", "false", criteriaItemsElement);
+        createElement(doc, "isUnlocked", "true", criteriaItemsElement);
+        String operator = convertOperator(filter.getQualifier_name());
+        if(operator.equals("")){
+            System.out.println("==> check filter: " + filter.getQualifier_name());
+        }
+        createElement(doc, "operator", operator, criteriaItemsElement);
+        createElement(doc, "value", filter.getInput_name0().toString(), criteriaItemsElement);
+        filterElement.appendChild(criteriaItemsElement);
+    }
+
+    private static String convertOperator(String inputOperator){
+        String returnString = "";
+        switch (inputOperator){
+            case "after":
+                returnString = "greaterThan";
+            case "one_of":
+                returnString = "contains";
+            case "is":
+                returnString = "";
+            case "empty":
+                returnString = "";
+            default:
+                returnString = "";
+        }
+        return  returnString;
+    }
     private static String convertName(String inputName){
         String returnString = "";
         switch (inputName){
