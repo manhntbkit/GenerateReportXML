@@ -247,7 +247,20 @@ public class WriteXmlDom1 {
             System.out.println("==> check filter: " + filter.getQualifier_name());
         }
         createElement(doc, "operator", operator, criteriaItemsElement);
-        String value = convertValue(filter.getInput_name0().toString());
+        String value = null;
+        if(filter.getInput_name0() instanceof  ArrayList){
+            value = String.join(",", (ArrayList)filter.getInput_name0());
+            value = value.replaceAll("1 Identified", "Interest");
+            value = value.replaceAll("2 Confirming", "Scoping");
+            value = value.replaceAll("3 Qualifying", "Scoping");
+            value = value.replaceAll("4 Proposing", "Proposal Sent");
+            value = value.replaceAll("5 Executing to Win", "Negotiation");
+            value = value.replaceAll("6 Contracting", "Contracting");
+            value = value.replaceAll("7 Closing", "Contracting");
+
+        }else{
+            value = convertValue(filter.getInput_name0().toString());
+        }
         createElement(doc, "value", value, criteriaItemsElement);
         filterElement.appendChild(criteriaItemsElement);
     }

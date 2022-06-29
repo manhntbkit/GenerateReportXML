@@ -55,7 +55,7 @@ public class ContentWrapper {
             return input_name0;
         }
 
-        public void setInput_name0(String input_name0) {
+        public void setInput_name0(Object input_name0) {
             this.input_name0 = input_name0;
         }
 
