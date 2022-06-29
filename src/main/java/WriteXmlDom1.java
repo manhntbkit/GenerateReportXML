@@ -16,6 +16,9 @@ import javax.xml.transform.*;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 import java.io.*;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -31,9 +34,11 @@ public class WriteXmlDom1 {
                 .filter(file -> !file.isDirectory())
                 .map(File::getName)
                 .collect(Collectors.toSet());
-        for(String jsonPath : names){
-            json2xml("src//data//json//" + jsonPath);
-        }
+//        for(String jsonPath : names){
+//            json2xml("src//data//json//" + jsonPath);
+//        }
+
+        json2xml("src//data//json//Opportunity Data for Board.json");
     }
 
     private static void json2xml(String jsonPath) throws JsonProcessingException, ParserConfigurationException {
@@ -117,8 +122,19 @@ public class WriteXmlDom1 {
 
         //filter
         ContentWrapper.FiltersDef filtersDef = content.filters_def;
-        String operator = filtersDef.Filter_1.get("operator").toString();
+        int filter1Size = filtersDef.Filter_1.entrySet().size();
         List<ContentWrapper.Filter> filters = new ArrayList<>();
+        Element booleanFilterElement = doc.createElement("booleanFilter");
+        if(filter1Size > 2){
+            List<String> operators = new ArrayList<>();
+            for (Map.Entry<String, Object> entry : filtersDef.Filter_1.entrySet()) {
+                if(!entry.getKey().equalsIgnoreCase("operator")) {
+                    operators.add(entry.getKey());
+                }
+            }
+            booleanFilterElement.setTextContent(String.join(" AND ", operators));
+        }
+
         for (Map.Entry<String, Object> entry : filtersDef.Filter_1.entrySet()) {
             if(!entry.getKey().equalsIgnoreCase("operator")){
                 filters.add(mapper.convertValue(entry.getValue(), ContentWrapper.Filter.class));
@@ -126,10 +142,26 @@ public class WriteXmlDom1 {
         }
 
         Element filterElement = doc.createElement("filter");
+        if(filter1Size > 2){
+            filterElement.appendChild(booleanFilterElement);
+        }
         for(ContentWrapper.Filter filter : filters){
             createCriteriaItems(doc, filterElement, filter, rowMappingByKey, objectName);
         }
+
         reportElement.appendChild(filterElement);
+
+        // timeFrameFilter
+        Element timeFrameFilterElement = doc.createElement("timeFrameFilter");
+        Element dateColumnElement = doc.createElement("dateColumn");
+        dateColumnElement.setTextContent("CREATED_DATE");
+        timeFrameFilterElement.appendChild(dateColumnElement);
+
+        Element intervalElement = doc.createElement("interval");
+        intervalElement.setTextContent("INTERVAL_CUSTOM");
+        timeFrameFilterElement.appendChild(intervalElement);
+
+        reportElement.appendChild(timeFrameFilterElement);
 
         // write dom document to a file
         String outputFileName = (String)((String) map.get("name"))
@@ -180,21 +212,52 @@ public class WriteXmlDom1 {
             System.out.println("==> check filter: " + filter.getQualifier_name());
         }
         createElement(doc, "operator", operator, criteriaItemsElement);
-        createElement(doc, "value", filter.getInput_name0().toString(), criteriaItemsElement);
+        String value = convertValue(filter.getInput_name0().toString());
+        createElement(doc, "value", value, criteriaItemsElement);
         filterElement.appendChild(criteriaItemsElement);
     }
 
+    private static boolean isValidDate(String inDate) {
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+        dateFormat.setLenient(false);
+        try {
+            dateFormat.parse(inDate.trim());
+        } catch (ParseException pe) {
+            return false;
+        }
+        return true;
+    }
+
+    private static String convertValue(String inputValue) {
+        String returnString = "";
+        if(isValidDate(inputValue)){
+            try {
+//                Date d = new SimpleDateFormat("yyyy-MM-dd").parse(inputValue);
+                LocalDate d
+                        = LocalDate.parse(inputValue);
+//                returnString = d.getMonth() + "/" + d.getDay() + "/" + d.getYear();
+                returnString = d.getMonth() + "/" + d.getDayOfMonth() + "/" + d.getYear();
+            } catch (Exception pe) {
+                returnString = "";
+            }
+        }
+        return returnString;
+    }
     private static String convertOperator(String inputOperator){
         String returnString = "";
         switch (inputOperator){
             case "after":
                 returnString = "greaterThan";
+                break;
             case "one_of":
                 returnString = "contains";
+                break;
             case "is":
                 returnString = "";
+                break;
             case "empty":
                 returnString = "";
+                break;
             default:
                 returnString = "";
         }
