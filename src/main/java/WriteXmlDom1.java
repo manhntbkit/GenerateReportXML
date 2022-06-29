@@ -3,16 +3,16 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import org.w3c.dom.CDATASection;
-import org.w3c.dom.Comment;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.transform.*;
+import javax.xml.transform.OutputKeys;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerException;
+import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 import java.io.*;
@@ -22,9 +22,6 @@ import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
-import com.github.underscore.U;
-import org.xml.sax.InputSource;
 
 public class WriteXmlDom1 {
 
@@ -38,7 +35,8 @@ public class WriteXmlDom1 {
 //            json2xml("src//data//json//" + jsonPath);
 //        }
 
-        json2xml("src//data//json//Opportunity Data for Board.json");
+//        json2xml("src//data//json//Opportunity Data for Board.json");
+        json2xml("src//data//json//Partner Review, Acct Oppty listing.json");
     }
 
     private static void json2xml(String jsonPath) throws JsonProcessingException, ParserConfigurationException {
@@ -122,8 +120,8 @@ public class WriteXmlDom1 {
 
         //filter
         ContentWrapper.FiltersDef filtersDef = content.filters_def;
-        int filter1Size = filtersDef.Filter_1.entrySet().size();
         List<ContentWrapper.Filter> filters = new ArrayList<>();
+        /*int filter1Size = filtersDef.Filter_1.entrySet().size();
         Element booleanFilterElement = doc.createElement("booleanFilter");
         if(filter1Size > 2){
             List<String> operators = new ArrayList<>();
@@ -133,18 +131,36 @@ public class WriteXmlDom1 {
                 }
             }
             booleanFilterElement.setTextContent(String.join(" AND ", operators));
-        }
+        }*/
 
         for (Map.Entry<String, Object> entry : filtersDef.Filter_1.entrySet()) {
             if(!entry.getKey().equalsIgnoreCase("operator")){
-                filters.add(mapper.convertValue(entry.getValue(), ContentWrapper.Filter.class));
+                try {
+                    filters.add(mapper.convertValue(entry.getValue(), ContentWrapper.Filter.class));
+                }catch (Exception e){
+                    // try to get child
+                    Map<String, Object> filterItems = (Map<String, Object>) entry.getValue();
+                    for (Map.Entry<String, Object> filterItem : filterItems.entrySet()) {
+                        if(!filterItem.getKey().equalsIgnoreCase("operator")){
+                            try {
+                                filters.add(mapper.convertValue(filterItem.getValue(), ContentWrapper.Filter.class));
+                            }catch (IllegalArgumentException ex){
+                                // input_name0 is an array
+                                System.out.println("====> input_name0 is an array");
+                            }catch (Exception ex){
+                                // input_name0 is an array
+                                System.out.println("====> " + map.get("name") + ": loi nay ko biet sua");
+                            }
+                        }
+                    }
+                }
             }
         }
 
         Element filterElement = doc.createElement("filter");
-        if(filter1Size > 2){
+        /*if(filter1Size > 2){
             filterElement.appendChild(booleanFilterElement);
-        }
+        }*/
         for(ContentWrapper.Filter filter : filters){
             createCriteriaItems(doc, filterElement, filter, rowMappingByKey, objectName);
         }
@@ -163,18 +179,37 @@ public class WriteXmlDom1 {
 
         reportElement.appendChild(timeFrameFilterElement);
 
+        // scope, showDetails, showGrandTotal, showSubTotals
+        Element scopeElement = doc.createElement("scope");
+        scopeElement.setTextContent("organization");
+        reportElement.appendChild(scopeElement);
+
+        Element showDetailsElement = doc.createElement("showDetails");
+        showDetailsElement.setTextContent("true");
+        reportElement.appendChild(showDetailsElement);
+
+        Element showGrandTotalElement = doc.createElement("showGrandTotal");
+        showGrandTotalElement.setTextContent("true");
+        reportElement.appendChild(showGrandTotalElement);
+
+        Element showSubTotalsElement = doc.createElement("showSubTotals");
+        showSubTotalsElement.setTextContent("true");
+        reportElement.appendChild(showSubTotalsElement);
+
         // write dom document to a file
         String outputFileName = (String)((String) map.get("name"))
-                .replace("/", " ")
-                .replace("<", " ")
-                .replace(">", " ")
-                .replace(":", " ")
-                .replace("\\", " ")
-                .replace("|", " ")
-                .replace("?", " ")
-                .replace("*", " ");
+                .replace("/", "_")
+                .replace("<", "_")
+                .replace(">", "_")
+                .replace(":", "_")
+                .replace("\\", "_")
+                .replace("|", "_")
+                .replace("?", "_")
+                .replace("*", "_")
+                .replace(",", "_")
+                .replace(" ", "_");
         try (FileOutputStream output =
-                     new FileOutputStream("src//data//xml//" + outputFileName + ".xml")) {
+                     new FileOutputStream("src//data//xml//" + outputFileName + ".report-meta.xml")) {
             writeXml(doc, output);
         } catch (IOException | TransformerException e) {
             e.printStackTrace();
@@ -232,14 +267,13 @@ public class WriteXmlDom1 {
         String returnString = "";
         if(isValidDate(inputValue)){
             try {
-//                Date d = new SimpleDateFormat("yyyy-MM-dd").parse(inputValue);
-                LocalDate d
-                        = LocalDate.parse(inputValue);
-//                returnString = d.getMonth() + "/" + d.getDay() + "/" + d.getYear();
-                returnString = d.getMonth() + "/" + d.getDayOfMonth() + "/" + d.getYear();
+                LocalDate d = LocalDate.parse(inputValue);
+                returnString = d.getMonthValue() + "/" + d.getDayOfMonth() + "/" + d.getYear();
             } catch (Exception pe) {
                 returnString = "";
             }
+        }else if(inputValue.equalsIgnoreCase("not_empty")){
+            returnString = "";
         }
         return returnString;
     }
@@ -257,6 +291,9 @@ public class WriteXmlDom1 {
                 break;
             case "empty":
                 returnString = "";
+                break;
+            case "not_empty":
+                returnString = "notEqual";
                 break;
             default:
                 returnString = "";
