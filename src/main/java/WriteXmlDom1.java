@@ -24,7 +24,11 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class WriteXmlDom1 {
-
+    static Map<String, Object> map;
+    static Map<String, List<String>>  rowMappingByKey;
+    static Document doc;
+    static Element reportElement;
+    static ContentWrapper content;
     public static void main(String[] args)
             throws ParserConfigurationException, TransformerException, IOException {
         Set<String> names = Stream.of(new File("src//data//json").listFiles())
@@ -36,7 +40,9 @@ public class WriteXmlDom1 {
 //        }
 
 //        json2xml("src//data//json//Opportunity Data for Board.json");
-        json2xml("src//data//json//Partner Review, Acct Oppty listing.json");
+//        json2xml("src//data//json//Partner Review, Acct Oppty listing.json");
+        json2xml("src//data//json//Tyler's FY23 Attainment (All Products) vs $450k.json");
+
     }
 
     private static void json2xml(String jsonPath) throws JsonProcessingException, ParserConfigurationException {
@@ -57,8 +63,7 @@ public class WriteXmlDom1 {
 
         ObjectMapper mapper = new ObjectMapper();
         mapper.configure(JsonParser.Feature.ALLOW_BACKSLASH_ESCAPING_ANY_CHARACTER, true);
-        Map<String, Object> map
-                = mapper.readValue(dataString, new TypeReference<Map<String,Object>>(){});
+        map = mapper.readValue(dataString, new TypeReference<Map<String,Object>>(){});
 
         String objectName = (String)map.get("module");
 
@@ -68,29 +73,36 @@ public class WriteXmlDom1 {
         DocumentBuilderFactory docFactory = DocumentBuilderFactory.newInstance();
         DocumentBuilder docBuilder = docFactory.newDocumentBuilder();
         // root elements
-        Document doc = docBuilder.newDocument();
-        Element reportElement = doc.createElement("Report");
+        doc = docBuilder.newDocument();
+        reportElement = doc.createElement("Report");
         reportElement.setAttribute("xmlns", "http://soap.sforce.com/2006/04/metadata");
         doc.appendChild(reportElement);
 
+        //region create name, format, reportType, currency
         //name
-        createElement(doc, "name",(String)map.get("name"), reportElement);
+        createElement("name",(String)map.get("name"), reportElement);
         //format
-        createElement(doc, "format",(String)map.get("report_type"), reportElement);
-        //reportType
-        createElement(doc, "reportType",convertName((String)map.get("module")), reportElement);
+        String format = (String)map.get("report_type");
+        if(format.equals("detailed_summary")){
+            format = "Summary";
+        }
+        createElement("format", format, reportElement);
+        //reportType.
+        // @TODO: manual create report type in salesforce
+        createElement("reportType",convertName((String)map.get("module")), reportElement);
         //currency
-        createElement(doc, "currency","GBP", reportElement);
+        createElement("currency","GBP", reportElement);
+        //endregion
 
-        //create colunms:
+        //region create colunms
         List<List<String>> recordsList = ReadCSV.readFile();
-        Map<String, List<String>>  rowMappingByKey = new HashMap<String, List<String>>();
+        rowMappingByKey = new HashMap<String, List<String>>();
         for(List<String> records: recordsList){
             rowMappingByKey.put(records.get(0), records);
         }
 
         String contentJson = (String)map.get("content");
-        ContentWrapper content = new Gson().fromJson(contentJson, ContentWrapper.class);
+        content = new Gson().fromJson(contentJson, ContentWrapper.class);
         int totalColumn = 0;
         List<String> columnsNotMapped = new ArrayList<>();
         for (ContentWrapper.ColumnObj col: content.display_columns) {
@@ -112,13 +124,14 @@ public class WriteXmlDom1 {
             List<String> rowRecords = rowMappingByKey.get(keyMap);
             if(rowRecords != null && rowRecords.size() == 2){
                 totalColumn++;
-                createColumnElement(doc,rowRecords.get(1), reportElement);
+                createColumnElement(rowRecords.get(1));
             }else{
                 columnsNotMapped.add(keyMap);
             }
         }
+        //endregion
 
-        //filter
+        //region create filter
         ContentWrapper.FiltersDef filtersDef = content.filters_def;
         List<ContentWrapper.Filter> filters = new ArrayList<>();
         /*int filter1Size = filtersDef.Filter_1.entrySet().size();
@@ -162,12 +175,38 @@ public class WriteXmlDom1 {
             filterElement.appendChild(booleanFilterElement);
         }*/
         for(ContentWrapper.Filter filter : filters){
-            createCriteriaItems(doc, filterElement, filter, rowMappingByKey, objectName);
+            String operator = filter.getQualifier_name();
+            if(operator.equals("between_dates")){
+                ContentWrapper.Filter filter1 = filter;
+                filter1.setInput_name0(filter.getInput_name0());
+                filter1.setQualifier_name("greaterOrEqual");
+                createCriteriaItems(filterElement, filter1, rowMappingByKey, objectName);
+
+                ContentWrapper.Filter filter2 = filter;
+                filter2.setInput_name0(filter.getInput_name1());
+                filter2.setQualifier_name("lessOrEqual");
+                createCriteriaItems(filterElement, filter2, rowMappingByKey, objectName);
+            }else if(filter.getName().equals("user_name")){
+                ContentWrapper.Filter filter1 = filter;
+                filter1.setInput_name0(((ArrayList) filter.getInput_name0()).get(0));
+                createCriteriaItems(filterElement, filter1, rowMappingByKey, objectName);
+            }else{
+                createCriteriaItems(filterElement, filter, rowMappingByKey, objectName);
+            }
         }
-
         reportElement.appendChild(filterElement);
+        //endregion
 
-        // timeFrameFilter
+        // region create groupingDown
+        Object groupDefs = content.group_defs;
+        if(groupDefs instanceof  ArrayList){
+            for(ContentWrapper.GroupDef groupDef : (List<ContentWrapper.GroupDef>)groupDefs){
+                createGroupingDown(groupDef);
+            }
+        }
+        // endregion
+
+        //region create timeFrameFilter
         Element timeFrameFilterElement = doc.createElement("timeFrameFilter");
         Element dateColumnElement = doc.createElement("dateColumn");
         dateColumnElement.setTextContent("CREATED_DATE");
@@ -178,8 +217,9 @@ public class WriteXmlDom1 {
         timeFrameFilterElement.appendChild(intervalElement);
 
         reportElement.appendChild(timeFrameFilterElement);
+        //endregion
 
-        // scope, showDetails, showGrandTotal, showSubTotals
+        //region create scope, showDetails, showGrandTotal, showSubTotals
         Element scopeElement = doc.createElement("scope");
         scopeElement.setTextContent("organization");
         reportElement.appendChild(scopeElement);
@@ -195,8 +235,9 @@ public class WriteXmlDom1 {
         Element showSubTotalsElement = doc.createElement("showSubTotals");
         showSubTotalsElement.setTextContent("true");
         reportElement.appendChild(showSubTotalsElement);
+        // endregion
 
-        // write dom document to a file
+        //region write dom document to a file
         String outputFileName = (String)((String) map.get("name"))
                 .replace("/", "_")
                 .replace("<", "_")
@@ -207,15 +248,17 @@ public class WriteXmlDom1 {
                 .replace("?", "_")
                 .replace("*", "_")
                 .replace(",", "_")
-                .replace(" ", "_");
+                .replace(" ", "_")
+                .replace("__", "_");
         try (FileOutputStream output =
                      new FileOutputStream("src//data//xml//" + outputFileName + ".report-meta.xml")) {
             writeXml(doc, output);
         } catch (IOException | TransformerException e) {
             e.printStackTrace();
         }
+        //endregion
 
-        // log errors
+        //region log errors
         if(content.display_columns.size() != totalColumn){
             System.out.println("=====================================================================================");
             System.out.println("File name error: " + outputFileName);
@@ -224,13 +267,27 @@ public class WriteXmlDom1 {
             System.out.println("Columns not mapped: " + columnsNotMapped);
             System.out.println("=====================================================================================");
         }
+        //endregion
     }
 
-    private static void createCriteriaItems(Document doc, Element filterElement, ContentWrapper.Filter filter, Map<String, List<String>>  rowMappingByKey, String objectName){
-        Element criteriaItemsElement = doc.createElement("criteriaItems");
-        String col = filter.getName();
+    private static void createGroupingDown(ContentWrapper.GroupDef groupDef){
+        Element groupingsDownElement = doc.createElement("groupingsDown");
+        createElement("dateGranularity", "Day", groupingsDownElement);
+        createElement("sortOrder", "Asc", groupingsDownElement);
+        String keyMap = getKeyMap(groupDef.getName(), groupDef.getTable_key(), (String)map.get("module"));
+        if(rowMappingByKey.get(keyMap).get(1).equals("Sales_Target__c$Start_date__c")){
+            createElement("field", "Sales_Target__c$Fiscal_Year__c", groupingsDownElement);
+        }else{
+            createElement("field", rowMappingByKey.get(keyMap).get(1), groupingsDownElement);
+        }
+
+        reportElement.appendChild(groupingsDownElement);
+    }
+
+    private static String getKeyMap(String col, String tableKey, String objectName){
+
         String keyMap = "";
-        String tableKey = filter.getTable_key();
+
         if(col.equals("date_entered") || col.equals("user_name")
                 || col.equals("full_name")){
             keyMap = col;
@@ -239,15 +296,29 @@ public class WriteXmlDom1 {
         } else if(tableKey.equals("self")){
             keyMap = objectName + ":" + col;
         }
-        createElement(doc, "column", rowMappingByKey.get(keyMap).get(1), criteriaItemsElement);
-        createElement(doc, "columnToColumn", "false", criteriaItemsElement);
-        createElement(doc, "isUnlocked", "true", criteriaItemsElement);
+        return keyMap;
+    }
+    private static void createCriteriaItems(Element filterElement, ContentWrapper.Filter filter, Map<String, List<String>>  rowMappingByKey, String objectName){
+        Element criteriaItemsElement = doc.createElement("criteriaItems");
+        String tableKey = filter.getTable_key();
+        String col = filter.getName();
+        String keyMap = getKeyMap(col, tableKey, objectName);
+
+        // special case for Sales Target
+        if(tableKey.equals("ss_Sales_Targets:assigned_user_link")){
+            createElement("column", "Sales_Target__c$Assigned_to__c", criteriaItemsElement);
+        }else{
+            createElement("column", rowMappingByKey.get(keyMap).get(1), criteriaItemsElement);
+        }
+
+        createElement("columnToColumn", "false", criteriaItemsElement);
+        createElement("isUnlocked", "true", criteriaItemsElement);
         String operator = convertOperator(filter.getQualifier_name());
         if(operator.equals("")){
             System.out.println("==> check filter: " + filter.getQualifier_name());
         }
-        createElement(doc, "operator", operator, criteriaItemsElement);
-        String value = null;
+        createElement("operator", operator, criteriaItemsElement);
+        String value;
         if(filter.getInput_name0() instanceof  ArrayList){
             value = String.join(",", (ArrayList)filter.getInput_name0());
             value = value.replaceAll("1 Identified", "Interest");
@@ -261,7 +332,8 @@ public class WriteXmlDom1 {
         }else{
             value = convertValue(filter.getInput_name0().toString());
         }
-        createElement(doc, "value", value, criteriaItemsElement);
+        createElement("value", value, criteriaItemsElement);
+
         filterElement.appendChild(criteriaItemsElement);
     }
 
@@ -277,7 +349,7 @@ public class WriteXmlDom1 {
     }
 
     private static String convertValue(String inputValue) {
-        String returnString = "";
+        String returnString = inputValue;
         if(isValidDate(inputValue)){
             try {
                 LocalDate d = LocalDate.parse(inputValue);
@@ -287,6 +359,9 @@ public class WriteXmlDom1 {
             }
         }else if(inputValue.equalsIgnoreCase("not_empty")){
             returnString = "";
+        }else if(inputValue.length() == 36 && inputValue.replaceAll("-", "").length() == 32){
+            // id user in sugar, replace by full name in salesforce
+            returnString = String.valueOf(rowMappingByKey.get(inputValue).get(1));
         }
         return returnString;
     }
@@ -299,14 +374,23 @@ public class WriteXmlDom1 {
             case "one_of":
                 returnString = "contains";
                 break;
+            case "contains":
+                returnString = "contains";
+                break;
             case "is":
-                returnString = "";
+                returnString = "equals";
                 break;
             case "empty":
                 returnString = "";
                 break;
             case "not_empty":
                 returnString = "notEqual";
+                break;
+            case "greaterOrEqual":
+                returnString = "greaterOrEqual";
+                break;
+            case "lessOrEqual":
+                returnString = "lessOrEqual";
                 break;
             default:
                 returnString = "";
@@ -318,27 +402,27 @@ public class WriteXmlDom1 {
         switch (inputName){
             case "Opportunities":
                 returnString = "Opportunity";
+            case "ss_Sales_Targets":
+                returnString = "Sales_Target_Custom_Report__c";
         }
         return  returnString;
 
     }
-    private static void createElement(Document doc, String tagName, String tagValue, Element parentElement){
+    private static void createElement(String tagName, String tagValue, Element parentElement){
         Element nameElement = doc.createElement(tagName);
         nameElement.setTextContent(tagValue);
         parentElement.appendChild(nameElement);
     }
 
-    private static void createColumnElement(Document doc, String columnValue, Element reportElement){
+    private static void createColumnElement(String columnValue){
         Element columnElement = doc.createElement("columns");
-        createElement(doc, "field",columnValue, columnElement);
+        createElement("field",columnValue, columnElement);
         reportElement.appendChild(columnElement);
 
     }
 
     // write doc to output stream
-    private static void writeXml(Document doc,
-                                 OutputStream output)
-            throws TransformerException {
+    private static void writeXml(Document doc, OutputStream output) throws TransformerException {
         TransformerFactory transformerFactory = TransformerFactory.newInstance();
         Transformer transformer = transformerFactory.newTransformer();
         // pretty print

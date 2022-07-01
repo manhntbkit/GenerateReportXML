@@ -1,9 +1,68 @@
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 public class ContentWrapper {
     ArrayList < ColumnObj > display_columns = new ArrayList< ColumnObj >();
     FiltersDef filters_def = new FiltersDef();
+    List<GroupDef> group_defs = new ArrayList<>();
+
+    class GroupDef{
+        String name;
+        String label;
+        String column_function;
+        String qualifier;
+        String table_key;
+        String type;
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public String getLabel() {
+            return label;
+        }
+
+        public void setLabel(String label) {
+            this.label = label;
+        }
+
+        public String getColumn_function() {
+            return column_function;
+        }
+
+        public void setColumn_function(String column_function) {
+            this.column_function = column_function;
+        }
+
+        public String getQualifier() {
+            return qualifier;
+        }
+
+        public void setQualifier(String qualifier) {
+            this.qualifier = qualifier;
+        }
+
+        public String getTable_key() {
+            return table_key;
+        }
+
+        public void setTable_key(String table_key) {
+            this.table_key = table_key;
+        }
+
+        public String getType() {
+            return type;
+        }
+
+        public void setType(String type) {
+            this.type = type;
+        }
+    }
 
     class FiltersDef{
         Map<String, Object> Filter_1;
