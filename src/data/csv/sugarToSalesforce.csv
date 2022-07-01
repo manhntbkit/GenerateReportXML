@@ -1,5 +1,5 @@
 SugarCRM,Salesforce
-Opportunities:date_closed,CLOSE_DATE
+Opportunities:date_closed,Opportunity.DWS_Expected_Close_Date__c
 Opportunities:name,OPPORTUNITY_NAME
 Opportunities:opportunity_type,Opportunity.DWS_Opportunity_Type__c
 Opportunities:dwsproduct_c,Opportunity.ProductandServices__c
@@ -132,3 +132,33 @@ Contacts:phone_mobile,PHONE3
 Contacts:phone_work,PHONE1
 Contacts:hard_bounce_c,Contact.pi__pardot_hard_bounced__c
 Contacts:title,TITLE
+ss_Sales_Targets,
+ss_Sales_Targets,Sales_Target__c 
+ss_Sales_Targets:start_date,Sales_Target__c$Start_date__c
+ss_Sales_Targets:name,Sales_Target__c$Name
+ss_Sales_Targets:target_frequency,Sales_Target__c$Target_Frequency__c
+ss_Sales_Targets:target_type,Sales_Target__c$Target_Type__c
+ss_Sales_Targets:target_value,Sales_Target__c$Value__c
+ss_Sales_Targets:is_universal_target,Sales_Target__c$Universal_Target__c
+fff95d0c-75b5-4568-9f27-ee29b206e998,Simeon Ghent
+fd6fa94a-ba9d-11ea-a707-001a4bbe9414,Enable Support
+f8e6dae4-c5b9-11e9-9916-0265ed7510c2,Ryan McBride
+f0761d14-bcae-11eb-83cc-a0369f2561b6,Koral Jackson
+eeb5b1e1-facd-d3a0-804f-542425f2dca4,Barry Burke
+d87933e6-4877-1ab7-b321-54fd699fc79c,Barbara Harper
+d65582b2-9076-11eb-82dd-d89d6723a66c,Tyler Price
+d4280b96-509e-11e9-88ca-020683bef092,William Wright
+d3d3a730-cacc-11ec-a851-a0d3c10252e8,Steve Turner
+cfb2ec60-9709-11e8-94d2-020430eb7945,Katey Coleman
+c09d790d-b7b0-c8d1-5fef-54242652a63c,Marketing
+bfcabe06-ae85-dbb4-7eca-577506fa954e,Patrick Neary
+b2345978-c5b9-11e9-b775-020683bef092,Frank Meskowsky
+7f63ff00-c65d-11e8-8ee7-069ac3a7122b,Scott McGrath
+7192f388-3c12-11e9-bf70-0265ed7510c2,Zara Dar
+632cb40c-235e-11eb-852d-a0369f2561b6,julie ellis
+497ecf3e-9a29-11e7-a2d2-020430eb7945,Sharon Holland
+4529e3e4-b286-11e8-8193-026d59c87fdd,Charlotte Looney
+44e9fc47-3642-42c0-663f-5524f891bbe5,Lee Balsom
+32e53de6-47c0-11ec-b97b-d89d6723a66c,Temp Admin
+31d51c79-e519-44fa-9434-fe14ca78d1df,Rachel Fraser
+,
