@@ -14,6 +14,7 @@ Opportunities:yr1_net_contract_value_gbp_c,Opportunity.DWS_Yr_1_Net_Contract_Val
 user_name,FULL_NAME
 full_name,FULL_NAME
 Other opportunity mapping,
+Opportunities,Opportunity
 Opportunities:no_of_ds_users_c,Opportunity.DWS_No_of_Full_Users_DS__c
 Opportunities:lead_source,Opportunity.LeadSource
 Opportunities:contract_end_date_c,Opportunity.DWS_Termination_or_End_Date__c
@@ -47,10 +48,19 @@ Opportunities:no_of_df_users_c,Opportunity.DWS_No_of_JDE_Named_Users_DF__c
 Opportunities:no_of_lite_packs_ds_c,Opportunity.DWS_No_of_Lite_Packs_DS__c
 Opportunities:no_of_virtual_user_days_dl_c,Opportunity.DWS_No_of_Virtual_User_Days_DL__c
 Opportunities:id,OPPORTUNITY_ID
+Opportunities:eit_acct_region_opp_c,Opportunity.DWS_Acct_Region__c
+Opportunities:commencement_month_c,Opportunity.DWS_Commencement_Month__c
+Opportunities:sales_attainment_value_gbp_c,Opportunity.DWS_Sales_Attainment_Value_GBP__c
+Opportunities:expected_close_date_fiscal_c,Opportunity.expected_close_date_fiscal__c
+Opportunities:best_case,Opportunity.Best_Case__c
+Opportunities:total_contract_value_c,Opportunity.total_contract_value__c
 ACCOUNT,
+Accounts:id,Account_Id
+accounts,account
 accounts:name,ACCOUNT_NAME
 accounts:region_c,Account.DWS_Region__c
 accounts:account_type,ACCOUNT_TYPE
+Accounts:account_type,ACCOUNT_TYPE
 Accounts:dwsdatasource_c,Account.DWS_Data_Source__c
 Accounts:latest_partner_docs_sig_c,Account.DWS_Date_Latest_Partner_Agreement_Signed__c
 Accounts:dws_acton_score_c,Account.DWS_Account_Act_On_Score_Max__c
@@ -83,6 +93,8 @@ Accounts:website,URL
 Accounts:employees,EMPLOYEES
 Accounts:state_c,ADDRESS1_STATE_CODE
 Accounts:noofclosedwonopps_c,Account.DWS_No_of_Closed_Won_Opps__c
+Accounts:eit_jde_market_type_c,Account.eit_jde_market_type
+accounts:annual_revenue,Account.AnnualRevenue
 LEAD,
 first_name,FIRST_NAME
 last_name,LAST_NAME
@@ -97,6 +109,7 @@ Leads:status,Lead.STATUS
 Leads:account_name,Lead.COMPANY
 Leads:website,Lead.URL
 Leads:email,Lead.EMAIL
+Leads,Lead
 INVOICE,
 inv_invoices:name,CUST_NAME
 inv_invoices:description,Invoice__c.Description__c
@@ -106,7 +119,19 @@ inv_invoices:invoice_date,Invoice__c.Transaction_Date__c
 inv_invoices:receipt_date,Invoice__c.DWS_Receipt_Date__c
 inv_invoices:invoice_number_c,Invoice__c.DWS_Invoice_Number__c
 inv_invoices:value_in_base_c,Invoice__c.DWS_GBP_Amount__c
+opportunities_inv_invoices_1:invoice_date,Invoice__c.Transaction_Date__c
+opportunities_inv_invoices_1:opportunity_type,Opportunity.DWS_Opportunity_Type__c
+opportunities_inv_invoices_1:receipt_date,Invoice__c.DWS_Receipt_Date__c
+opportunities_inv_invoices_1:amount,Invoice__c.Total_Amount__c
+opportunities_inv_invoices_1:invoice_number_c,Invoice__c.DWS_Invoice_Number__c
+opportunities_inv_invoices_1:name,Invoice__c.Name
+opportunities_inv_invoices_1:currency_id,Invoice__c.DWS_Currency__c
+opportunities_inv_invoices_1:dwsproduct_c,Opportunity.ProductandServices__c
+inv_Invoices,Invoice__c
+inv_Invoices:currency_id,Invoice__c.DWS_Currency__c
 CONTACT,
+Contacts:id,Contact_Id
+Contacts,Contact
 Contacts:department,DEPARTMENT
 Contacts:do_not_call,Contact.Do_Not_Contact__c
 Contacts:dws_acton_engaged_c,Contact.DWS_Act_On_Engaged__c
@@ -132,6 +157,8 @@ Contacts:phone_mobile,PHONE3
 Contacts:phone_work,PHONE1
 Contacts:hard_bounce_c,Contact.pi__pardot_hard_bounced__c
 Contacts:title,TITLE
+contacts:email_address,EMAIL
+email_addresses_primary:email_address,EMAIL
 ss_Sales_Targets,
 ss_Sales_Targets,Sales_Target__c 
 ss_Sales_Targets:start_date,Sales_Target__c$Start_date__c

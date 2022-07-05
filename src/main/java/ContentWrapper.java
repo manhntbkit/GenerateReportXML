@@ -7,6 +7,10 @@ public class ContentWrapper {
     FiltersDef filters_def = new FiltersDef();
     List<GroupDef> group_defs = new ArrayList<>();
 
+    String numerical_chart_column;
+
+    String chart_type;
+
     class GroupDef{
         String name;
         String label;

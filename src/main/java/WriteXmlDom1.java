@@ -3,6 +3,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.gson.Gson;
+import org.apache.commons.collections4.map.CaseInsensitiveMap;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
@@ -29,23 +30,31 @@ public class WriteXmlDom1 {
     static Document doc;
     static Element reportElement;
     static ContentWrapper content;
+    static int indexReportName = 1;
     public static void main(String[] args)
             throws ParserConfigurationException, TransformerException, IOException {
         Set<String> names = Stream.of(new File("src//data//json").listFiles())
                 .filter(file -> !file.isDirectory())
                 .map(File::getName)
                 .collect(Collectors.toSet());
-//        for(String jsonPath : names){
-//            json2xml("src//data//json//" + jsonPath);
-//        }
+        for(String jsonPath : names){
+            json2xml("src//data//json//" + jsonPath);
+        }
 
 //        json2xml("src//data//json//Opportunity Data for Board.json");
 //        json2xml("src//data//json//Partner Review, Acct Oppty listing.json");
-        json2xml("src//data//json//Tyler's FY23 Attainment (All Products) vs $450k.json");
+//        json2xml("src//data//json//Tyler's FY23 Attainment (All Products) vs $450k.json");
+//        json2xml("src//data//json//Bill's pipeline.json");
 
     }
 
     private static void json2xml(String jsonPath) throws JsonProcessingException, ParserConfigurationException {
+        List<List<String>> recordsList = ReadCSV.readFile();
+        rowMappingByKey = new CaseInsensitiveMap<>();
+        for(List<String> records: recordsList){
+            rowMappingByKey.put(records.get(0), records);
+        }
+
         //read json file.
         String dataString = "";
         try {
@@ -64,7 +73,8 @@ public class WriteXmlDom1 {
         ObjectMapper mapper = new ObjectMapper();
         mapper.configure(JsonParser.Feature.ALLOW_BACKSLASH_ESCAPING_ANY_CHARACTER, true);
         map = mapper.readValue(dataString, new TypeReference<Map<String,Object>>(){});
-
+        String contentJson = (String)map.get("content");
+        content = new Gson().fromJson(contentJson, ContentWrapper.class);
         String objectName = (String)map.get("module");
 
         //convert Java class to XML elements.
@@ -78,9 +88,52 @@ public class WriteXmlDom1 {
         reportElement.setAttribute("xmlns", "http://soap.sforce.com/2006/04/metadata");
         doc.appendChild(reportElement);
 
-        //region create name, format, reportType, currency
+        //region create chart, name, format, reportType, currency
+        //chart
+        try {
+            String chartType = content.chart_type;
+            if (chartType.equals("vGBarF") || chartType.equals("funnelF")) {
+                List<String> chartColums = List.of(content.numerical_chart_column.split(":"));
+                if(chartColums.size() == 3){
+                String keyMap = getKeyMap(chartColums.get(1), chartColums.get(0), (String) map.get("module"));
+                List<String> rowRecords = rowMappingByKey.get(keyMap);
+
+                String operator = chartColums.get(2);
+                String groupingColumn = "";
+                Object groupDefs = content.group_defs;
+                if (groupDefs instanceof ArrayList) {
+                    groupingColumn = ((ArrayList<ContentWrapper.GroupDef>) groupDefs).get(0).getName();
+                    if ("ss_Sales_Targets".equals(map.get("module")) && groupingColumn.equals("start_date")) {
+                        groupingColumn = "Sales_Target__c$Fiscal_Year__c";
+                    } else {
+                        groupingColumn = rowMappingByKey.get(keyMap).get(1);
+                    }
+                }
+                String chartColumn = rowRecords.get(1);
+                createChart(chartColumn, operator, groupingColumn, chartType);
+                }else if(chartColums.size() == 2){
+                    // @TODO: content.numerical_chart_column = self:count
+                    System.out.println("===> check here: report name: " + map.get("name"));
+                }else{
+                    // @TODO: exception, continue check
+                    System.out.println("===> exception, continue check: report name: " + map.get("name"));
+                }
+            }else if(chartType != null && !chartType.isBlank() && !chartType.equals("none")
+            && !chartType.equals("vGBarF") && !chartType.equals("funnelF")){
+                // log report type need to handle
+                System.out.println("Check chart type: " + chartType);
+            }
+        }catch (Exception e){
+            System.out.println(e.getMessage());
+        }
+
         //name
-        createElement("name",(String)map.get("name"), reportElement);
+        String reportName = (String)map.get("name");
+        if(reportName.length() > 40) {
+            reportName = reportName.substring(0, 37) + " " + indexReportName;
+            indexReportName++;
+        }
+        createElement("name", reportName, reportElement);
         //format
         String format = (String)map.get("report_type");
         if(format.equals("detailed_summary")){
@@ -92,24 +145,21 @@ public class WriteXmlDom1 {
         createElement("reportType",convertName((String)map.get("module")), reportElement);
         //currency
         createElement("currency","GBP", reportElement);
+        createElement("description", (String)map.get("name"), reportElement);
         //endregion
 
         //region create colunms
-        List<List<String>> recordsList = ReadCSV.readFile();
-        rowMappingByKey = new HashMap<String, List<String>>();
-        for(List<String> records: recordsList){
-            rowMappingByKey.put(records.get(0), records);
-        }
 
-        String contentJson = (String)map.get("content");
-        content = new Gson().fromJson(contentJson, ContentWrapper.class);
+
+
         int totalColumn = 0;
         List<String> columnsNotMapped = new ArrayList<>();
         for (ContentWrapper.ColumnObj col: content.display_columns) {
             String tableKey = col.getTable_key();
             String keyMap = "";
             if(col.getName().equals("date_entered") || col.getName().equals("user_name")
-                    || col.getName().equals("full_name")){
+                    || col.getName().equals("full_name") || col.getName().equals("first_name")
+                    || col.getName().equals("last_name") || col.getName().equals("date_modified")){
                 keyMap = col.getName();
             } else if(tableKey.contains(":")){
                 keyMap = tableKey.split(":")[1] + ':' + col.getName();
@@ -187,9 +237,17 @@ public class WriteXmlDom1 {
                 filter2.setQualifier_name("lessOrEqual");
                 createCriteriaItems(filterElement, filter2, rowMappingByKey, objectName);
             }else if(filter.getName().equals("user_name")){
+                try{
                 ContentWrapper.Filter filter1 = filter;
-                filter1.setInput_name0(((ArrayList) filter.getInput_name0()).get(0));
+                if(filter.getInput_name0() instanceof ArrayList) {
+                    filter1.setInput_name0(((ArrayList) filter.getInput_name0()).get(0));
+                }else{
+                    filter1.setInput_name0(filter.getInput_name0());
+                }
                 createCriteriaItems(filterElement, filter1, rowMappingByKey, objectName);
+                }catch (Exception e){
+                    System.out.println(e);
+                }
             }else{
                 createCriteriaItems(filterElement, filter, rowMappingByKey, objectName);
             }
@@ -207,16 +265,25 @@ public class WriteXmlDom1 {
         // endregion
 
         //region create timeFrameFilter
-        Element timeFrameFilterElement = doc.createElement("timeFrameFilter");
-        Element dateColumnElement = doc.createElement("dateColumn");
-        dateColumnElement.setTextContent("CREATED_DATE");
-        timeFrameFilterElement.appendChild(dateColumnElement);
+        try {
+            Element timeFrameFilterElement = doc.createElement("timeFrameFilter");
+            Element dateColumnElement = doc.createElement("dateColumn");
+            if (!rowMappingByKey.get((String) map.get("module")).get(1).contains("__c")) {
+                dateColumnElement.setTextContent("CREATED_DATE");
+            } else {
+                dateColumnElement.setTextContent(rowMappingByKey.get((String) map.get("module")).get(1) + "$CreatedDate");
+            }
 
-        Element intervalElement = doc.createElement("interval");
-        intervalElement.setTextContent("INTERVAL_CUSTOM");
-        timeFrameFilterElement.appendChild(intervalElement);
+            timeFrameFilterElement.appendChild(dateColumnElement);
 
-        reportElement.appendChild(timeFrameFilterElement);
+            Element intervalElement = doc.createElement("interval");
+            intervalElement.setTextContent("INTERVAL_CUSTOM");
+            timeFrameFilterElement.appendChild(intervalElement);
+
+            reportElement.appendChild(timeFrameFilterElement);
+        }catch (Exception e){
+            System.out.println(e);
+        }
         //endregion
 
         //region create scope, showDetails, showGrandTotal, showSubTotals
@@ -238,7 +305,7 @@ public class WriteXmlDom1 {
         // endregion
 
         //region write dom document to a file
-        String outputFileName = (String)((String) map.get("name"))
+        String outputFileName = ((String) map.get("name"))
                 .replace("/", "_")
                 .replace("<", "_")
                 .replace(">", "_")
@@ -270,15 +337,69 @@ public class WriteXmlDom1 {
         //endregion
     }
 
+    private static void createChart(String chartColumn, String operator, String groupingColumn, String chartType){
+        Element chartElement = doc.createElement("chart");
+        createElement("backgroundColor1", "#FFFFFF", chartElement);
+        createElement("backgroundColor2", "#FFFFFF", chartElement);
+        createElement("backgroundFadeDir", "Diagonal", chartElement);
+
+        Element chartSummariesElement = doc.createElement("chartSummaries");
+        createElement("aggregate", operator, chartSummariesElement);
+        createElement("axisBinding", "y", chartSummariesElement);
+        createElement("column", chartColumn, chartSummariesElement);
+        chartElement.appendChild(chartSummariesElement);
+
+        if(chartType.equals("vGBarF")){
+            chartType = "VerticalColumn";
+        }else if(chartType.equals("funnelF")){
+            chartType = "Funnel";
+        }
+        createElement("chartType", chartType, chartElement);
+        createElement("enableHoverLabels", "false", chartElement);
+        String expandOthers = "true";
+        if(chartType.equals("VerticalColumn")){
+            expandOthers = "true";
+        }else if(chartType.equals("Funnel")){
+            expandOthers = "false";
+        }
+        createElement("expandOthers", expandOthers, chartElement);
+
+        createElement("groupingColumn", groupingColumn, chartElement);
+        if(chartType.equals("Funnel")){
+            createElement("legendPosition", "Right", chartElement);
+        }
+
+        createElement("location", "CHART_TOP", chartElement);
+        createElement("showAxisLabels", "true", chartElement);
+        createElement("showPercentage", "false", chartElement);
+        createElement("showTotal", "false", chartElement);
+        String showValue = "false";
+        if(chartType.equals("VerticalColumn")){
+            showValue = "false";
+        }else if(chartType.equals("Funnel")){
+            showValue = "true";
+        }
+        createElement("showValues", showValue, chartElement);
+        createElement("size", "Medium", chartElement);
+        createElement("summaryAxisRange", "Auto", chartElement);
+        createElement("textColor", "#000000", chartElement);
+        createElement("textSize", "12", chartElement);
+        createElement("titleColor", "#000000", chartElement);
+        createElement("titleSize", "18", chartElement);
+        reportElement.appendChild(chartElement);
+    }
     private static void createGroupingDown(ContentWrapper.GroupDef groupDef){
         Element groupingsDownElement = doc.createElement("groupingsDown");
         createElement("dateGranularity", "Day", groupingsDownElement);
         createElement("sortOrder", "Asc", groupingsDownElement);
         String keyMap = getKeyMap(groupDef.getName(), groupDef.getTable_key(), (String)map.get("module"));
+        try{
         if(rowMappingByKey.get(keyMap).get(1).equals("Sales_Target__c$Start_date__c")){
             createElement("field", "Sales_Target__c$Fiscal_Year__c", groupingsDownElement);
         }else{
             createElement("field", rowMappingByKey.get(keyMap).get(1), groupingsDownElement);
+        }}catch (Exception e){
+            System.out.println(e.getMessage());
         }
 
         reportElement.appendChild(groupingsDownElement);
@@ -289,7 +410,7 @@ public class WriteXmlDom1 {
         String keyMap = "";
 
         if(col.equals("date_entered") || col.equals("user_name")
-                || col.equals("full_name")){
+                || col.equals("full_name") || col.equals("date_modified")){
             keyMap = col;
         } else if(tableKey.contains(":")){
             keyMap = tableKey.split(":")[1] + ':' + col;
@@ -308,7 +429,11 @@ public class WriteXmlDom1 {
         if(tableKey.equals("ss_Sales_Targets:assigned_user_link")){
             createElement("column", "Sales_Target__c$Assigned_to__c", criteriaItemsElement);
         }else{
-            createElement("column", rowMappingByKey.get(keyMap).get(1), criteriaItemsElement);
+            try {
+                createElement("column", rowMappingByKey.get(keyMap).get(1), criteriaItemsElement);
+            }catch (Exception e){
+                System.out.println(e);
+            }
         }
 
         createElement("columnToColumn", "false", criteriaItemsElement);
@@ -362,6 +487,8 @@ public class WriteXmlDom1 {
         }else if(inputValue.length() == 36 && inputValue.replaceAll("-", "").length() == 32){
             // id user in sugar, replace by full name in salesforce
             returnString = String.valueOf(rowMappingByKey.get(inputValue).get(1));
+        }else if(inputValue.equals("not_empty") || inputValue.equals("empty")){
+            returnString = "";
         }
         return returnString;
     }
@@ -381,7 +508,7 @@ public class WriteXmlDom1 {
                 returnString = "equals";
                 break;
             case "empty":
-                returnString = "";
+                returnString = "equals";
                 break;
             case "not_empty":
                 returnString = "notEqual";
@@ -399,11 +526,26 @@ public class WriteXmlDom1 {
     }
     private static String convertName(String inputName){
         String returnString = "";
+        try{
         switch (inputName){
             case "Opportunities":
                 returnString = "Opportunity";
+                break;
+            case "Accounts":
+                returnString = "Account";
+                break;
+            case "Contacts":
+                returnString = "Contact";
+                break;
             case "ss_Sales_Targets":
+                // @TODO: remove when move to new sandbox. need to check "allow report" when create object
                 returnString = "Sales_Target_Custom_Report__c";
+                break;
+            default:
+                returnString = "CustomEntity$" + rowMappingByKey.get(inputName).get(1);
+                break;
+        }}catch (Exception e){
+            System.out.println(e);
         }
         return  returnString;
 
