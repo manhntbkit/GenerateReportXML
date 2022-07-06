@@ -155,28 +155,30 @@ public class WriteXmlDom1 {
         int totalColumn = 0;
         List<String> columnsNotMapped = new ArrayList<>();
         for (ContentWrapper.ColumnObj col: content.display_columns) {
-            String tableKey = col.getTable_key();
-            String keyMap = "";
-            if(col.getName().equals("date_entered") || col.getName().equals("user_name")
-                    || col.getName().equals("full_name") || col.getName().equals("first_name")
-                    || col.getName().equals("last_name") || col.getName().equals("date_modified")){
-                keyMap = col.getName();
-            } else if(tableKey.contains(":")){
-                keyMap = tableKey.split(":")[1] + ':' + col.getName();
-            } else if(tableKey.equals("self")){
-                keyMap = objectName + ":" + col.getName();
-            }
-            //else{
-            //keyMap = tableKey + ':' + col.getName();
-            //}
+            if(!content.group_defs.contains(col)) {
+                String tableKey = col.getTable_key();
+                String keyMap = "";
+                if (col.getName().equals("date_entered") || col.getName().equals("user_name")
+                        || col.getName().equals("full_name") || col.getName().equals("first_name")
+                        || col.getName().equals("last_name") || col.getName().equals("date_modified")) {
+                    keyMap = col.getName();
+                } else if (tableKey.contains(":")) {
+                    keyMap = tableKey.split(":")[1] + ':' + col.getName();
+                } else if (tableKey.equals("self")) {
+                    keyMap = objectName + ":" + col.getName();
+                }
+                //else{
+                //keyMap = tableKey + ':' + col.getName();
+                //}
 
-            //:accounts:name => ACCOUNT_NAME
-            List<String> rowRecords = rowMappingByKey.get(keyMap);
-            if(rowRecords != null && rowRecords.size() == 2){
-                totalColumn++;
-                createColumnElement(rowRecords.get(1));
-            }else{
-                columnsNotMapped.add(keyMap);
+                //:accounts:name => ACCOUNT_NAME
+                List<String> rowRecords = rowMappingByKey.get(keyMap);
+                if (rowRecords != null && rowRecords.size() == 2) {
+                    totalColumn++;
+                    createColumnElement(rowRecords.get(1));
+                } else {
+                    columnsNotMapped.add(keyMap);
+                }
             }
         }
         //endregion
