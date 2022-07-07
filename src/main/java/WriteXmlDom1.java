@@ -37,16 +37,25 @@ public class WriteXmlDom1 {
                 .filter(file -> !file.isDirectory())
                 .map(File::getName)
                 .collect(Collectors.toSet());
-        for(String jsonPath : names){
-            json2xml("src//data//json//" + jsonPath);
-        }
+//        for(String jsonPath : names){
+//            json2xml("src//data//json//" + jsonPath);
+//        }
 
 //        json2xml("src//data//json//Opportunity Data for Board.json");
-//        json2xml("src//data//json//Partner Review, Acct Oppty listing.json");
+        json2xml("src//data//json//Partner Review, Acct Oppty listing.json");
 //        json2xml("src//data//json//Tyler's FY23 Attainment (All Products) vs $450k.json");
 //        json2xml("src//data//json//Bill's pipeline.json");
-
+//        json2xml("src//data//json//Closed count by month and product service (last this FQ).json");
+//        json2xml("src//data//json//KJ DATA CLEANUP  Opportunities key fields check (Bill).json");
+//        json2xml("src//data//json//Closed count by month and user (last this fiscal qtr).json");
+//        json2xml("src//data//json//Closed value by month and product service (last this FQ).json");
+//        json2xml("src//data//json//KJ DATA CLEANUP  Accounts to be reassigned.json");
+//        json2xml("src//data//json//KJ DATA CLEANUP  Opportunities key fields check (Bill).json");
+//        json2xml("src//data//json//KJ DATA CLEANUP  Opportunities key fields check (Pat).json");
+        json2xml("src//data//json//NA End User JDE Accounts w Contacts.json");
+        json2xml("src//data//json//Non-NA End User JDE Accounts w Contacts.json");
     }
+
 
     private static void json2xml(String jsonPath) throws JsonProcessingException, ParserConfigurationException {
         List<List<String>> recordsList = ReadCSV.readFile();
@@ -155,30 +164,39 @@ public class WriteXmlDom1 {
         int totalColumn = 0;
         List<String> columnsNotMapped = new ArrayList<>();
         for (ContentWrapper.ColumnObj col: content.display_columns) {
-            if(!content.group_defs.contains(col)) {
-                String tableKey = col.getTable_key();
-                String keyMap = "";
-                if (col.getName().equals("date_entered") || col.getName().equals("user_name")
-                        || col.getName().equals("full_name") || col.getName().equals("first_name")
-                        || col.getName().equals("last_name") || col.getName().equals("date_modified")) {
-                    keyMap = col.getName();
-                } else if (tableKey.contains(":")) {
-                    keyMap = tableKey.split(":")[1] + ':' + col.getName();
-                } else if (tableKey.equals("self")) {
-                    keyMap = objectName + ":" + col.getName();
+            Boolean isSkip = false;
+            for(ContentWrapper.GroupDef group_def : content.group_defs){
+                if(group_def.getName().equals(col.getName())){
+                    isSkip = true;
+                    break;
                 }
-                //else{
-                //keyMap = tableKey + ':' + col.getName();
-                //}
+            }
+            if(isSkip) {
+                totalColumn++; // to ignore print error Columns not mapped
+                continue;
+            }
+            String tableKey = col.getTable_key();
+            String keyMap = "";
+            if (col.getName().equals("date_entered") || col.getName().equals("user_name")
+                    || col.getName().equals("full_name") || col.getName().equals("first_name")
+                    || col.getName().equals("last_name") || col.getName().equals("date_modified")) {
+                keyMap = col.getName();
+            } else if (tableKey.contains(":")) {
+                keyMap = tableKey.split(":")[1] + ':' + col.getName();
+            } else if (tableKey.equals("self")) {
+                keyMap = objectName + ":" + col.getName();
+            }
+            //else{
+            //keyMap = tableKey + ':' + col.getName();
+            //}
 
-                //:accounts:name => ACCOUNT_NAME
-                List<String> rowRecords = rowMappingByKey.get(keyMap);
-                if (rowRecords != null && rowRecords.size() == 2) {
-                    totalColumn++;
-                    createColumnElement(rowRecords.get(1));
-                } else {
-                    columnsNotMapped.add(keyMap);
-                }
+            //:accounts:name => ACCOUNT_NAME
+            List<String> rowRecords = rowMappingByKey.get(keyMap);
+            if (rowRecords != null && rowRecords.size() == 2) {
+                totalColumn++;
+                createColumnElement(rowRecords.get(1));
+            } else {
+                columnsNotMapped.add(keyMap);
             }
         }
         //endregion
@@ -186,17 +204,22 @@ public class WriteXmlDom1 {
         //region create filter
         ContentWrapper.FiltersDef filtersDef = content.filters_def;
         List<ContentWrapper.Filter> filters = new ArrayList<>();
-        /*int filter1Size = filtersDef.Filter_1.entrySet().size();
+        // combine conditional
         Element booleanFilterElement = doc.createElement("booleanFilter");
-        if(filter1Size > 2){
-            List<String> operators = new ArrayList<>();
-            for (Map.Entry<String, Object> entry : filtersDef.Filter_1.entrySet()) {
-                if(!entry.getKey().equalsIgnoreCase("operator")) {
-                    operators.add(entry.getKey());
-                }
+        String finalLogicFilter = "";
+        List<String> logicFilter = new ArrayList<>();
+
+        WrapInt startNumber = new WrapInt(1);
+        for (Map.Entry<String, Object> entry : filtersDef.Filter_1.entrySet()) {
+            if(!entry.getKey().equals("operator")){
+                logicFilter.add(generateLogicFilter((Map<String, Object>) entry.getValue(), startNumber));
+            }else {
+                finalLogicFilter = String.join(" " + entry.getValue() + " ", logicFilter);
             }
-            booleanFilterElement.setTextContent(String.join(" AND ", operators));
-        }*/
+        }
+        System.out.println(finalLogicFilter);
+        booleanFilterElement.setTextContent(finalLogicFilter);
+        // combine conditional
 
         for (Map.Entry<String, Object> entry : filtersDef.Filter_1.entrySet()) {
             if(!entry.getKey().equalsIgnoreCase("operator")){
@@ -223,9 +246,10 @@ public class WriteXmlDom1 {
         }
 
         Element filterElement = doc.createElement("filter");
-        /*if(filter1Size > 2){
-            filterElement.appendChild(booleanFilterElement);
-        }*/
+        // combine conditional
+        filterElement.appendChild(booleanFilterElement);
+        // combine conditional
+
         for(ContentWrapper.Filter filter : filters){
             String operator = filter.getQualifier_name();
             if(operator.equals("between_dates")){
@@ -270,17 +294,17 @@ public class WriteXmlDom1 {
         try {
             Element timeFrameFilterElement = doc.createElement("timeFrameFilter");
             Element dateColumnElement = doc.createElement("dateColumn");
-            if (!rowMappingByKey.get((String) map.get("module")).get(1).contains("__c")) {
-                dateColumnElement.setTextContent("CREATED_DATE");
-            } else {
-                dateColumnElement.setTextContent(rowMappingByKey.get((String) map.get("module")).get(1) + "$CreatedDate");
-            }
+                if (!rowMappingByKey.get((String) map.get("module")).get(1).contains("__c")) {
+                    dateColumnElement.setTextContent("CREATED_DATE");
+                } else {
+                    dateColumnElement.setTextContent(rowMappingByKey.get((String) map.get("module")).get(1) + "$CreatedDate");
+                }
 
-            timeFrameFilterElement.appendChild(dateColumnElement);
+                timeFrameFilterElement.appendChild(dateColumnElement);
 
-            Element intervalElement = doc.createElement("interval");
-            intervalElement.setTextContent("INTERVAL_CUSTOM");
-            timeFrameFilterElement.appendChild(intervalElement);
+                Element intervalElement = doc.createElement("interval");
+                intervalElement.setTextContent("INTERVAL_CUSTOM");
+                timeFrameFilterElement.appendChild(intervalElement);
 
             reportElement.appendChild(timeFrameFilterElement);
         }catch (Exception e){
@@ -337,6 +361,24 @@ public class WriteXmlDom1 {
             System.out.println("=====================================================================================");
         }
         //endregion
+    }
+
+    private static String generateLogicFilter(Map<String, Object> filter, WrapInt startNumber){
+        String logicFilter = "";
+        String operator = "";
+        List<Integer> conditionItems = new ArrayList<>();
+        for (Map.Entry<String, Object> entry : filter.entrySet()) {
+            if(!entry.getKey().equalsIgnoreCase("operator")) {
+
+                conditionItems.add(startNumber.getValue());
+                startNumber.setValue(startNumber.getValue() + 1);
+            }else if(entry.getKey().equalsIgnoreCase("operator")){
+                operator = (String) entry.getValue();
+            }
+        }
+        logicFilter = "(" + conditionItems.stream().map(String::valueOf).collect(Collectors
+                .joining(" " + operator + " ")) + ")";
+        return logicFilter;
     }
 
     private static void createChart(String chartColumn, String operator, String groupingColumn, String chartType){
@@ -437,7 +479,6 @@ public class WriteXmlDom1 {
                 System.out.println(e);
             }
         }
-
         createElement("columnToColumn", "false", criteriaItemsElement);
         createElement("isUnlocked", "true", criteriaItemsElement);
         String operator = convertOperator(filter.getQualifier_name());
@@ -457,7 +498,7 @@ public class WriteXmlDom1 {
             value = value.replaceAll("7 Closing", "Contracting");
 
         }else{
-            value = convertValue(filter.getInput_name0().toString());
+            value = convertValue(filter.getInput_name0().toString(), filter.getQualifier_name());
         }
         createElement("value", value, criteriaItemsElement);
 
@@ -475,7 +516,7 @@ public class WriteXmlDom1 {
         return true;
     }
 
-    private static String convertValue(String inputValue) {
+    private static String convertValue(String inputValue, String operator) {
         String returnString = inputValue;
         if(isValidDate(inputValue)){
             try {
@@ -491,6 +532,28 @@ public class WriteXmlDom1 {
             returnString = String.valueOf(rowMappingByKey.get(inputValue).get(1));
         }else if(inputValue.equals("not_empty") || inputValue.equals("empty")){
             returnString = "";
+        }else if(inputValue.equals("tp_previous_fiscal_quarter")){
+            returnString = "LAST FISCAL QUARTER";
+        }else if(inputValue.equals("tp_current_fiscal_quarter")){
+            returnString = "THIS FISCAL QUARTER";
+        }else if(inputValue.equals("tp_next_fiscal_quarter")){
+            returnString = "NEXT FISCAL QUARTER";
+        }else if(operator.equals("tp_next_n_days")){
+            returnString = "NEXT " + inputValue + " DAYS";
+        }else if(operator.equals("tp_last_n_days")){
+            returnString =  "LAST " + inputValue + " DAYS";
+        }else if(inputValue.equals("tp_last_7_days")){
+            returnString = "LAST 7 DAYS";
+        }else if(inputValue.equals("tp_last_30_days")){
+            returnString = "LAST 30 DAYS";
+        }else if(inputValue.equals("tp_current_fiscal_year")){
+            returnString = "THIS FISCAL YEAR";
+        }else if(inputValue.equals("tp_previous_fiscal_year")){
+            returnString = "LAST FISCAL YEAR";
+        }else if(inputValue.equals("tp_last_month")){
+            returnString = "LAST MONTH";
+        }else if(inputValue.equals("tp_this_month")){
+            returnString = "THIS MONTH";
         }
         return returnString;
     }
@@ -498,21 +561,32 @@ public class WriteXmlDom1 {
         String returnString = "";
         switch (inputOperator){
             case "after":
+            case "greater":
                 returnString = "greaterThan";
                 break;
             case "one_of":
-                returnString = "contains";
-                break;
             case "contains":
                 returnString = "contains";
                 break;
             case "is":
-                returnString = "equals";
-                break;
+            case "equals":
             case "empty":
+            case "tp_previous_fiscal_quarter":
+            case "tp_current_fiscal_quarter":
+            case "tp_next_fiscal_quarter":
+            case "tp_next_n_days":
+            case "tp_last_n_days":
+            case "tp_last_7_days":
+            case "tp_last_30_days":
+            case "tp_current_fiscal_year":
+            case "tp_previous_fiscal_year":
+            case "tp_last_month":
+            case "tp_this_month":
                 returnString = "equals";
                 break;
             case "not_empty":
+            case "is_not":
+            case "not_equals":
                 returnString = "notEqual";
                 break;
             case "greaterOrEqual":
@@ -520,6 +594,10 @@ public class WriteXmlDom1 {
                 break;
             case "lessOrEqual":
                 returnString = "lessOrEqual";
+                break;
+            case "not_one_of":
+            case "does_not_contain":
+                returnString = "notContain";
                 break;
             default:
                 returnString = "";
