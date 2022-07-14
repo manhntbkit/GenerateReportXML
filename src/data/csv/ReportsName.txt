@@ -255,3 +255,8 @@ Partner/Channel Wins by FY then Prod/Service
 Partner pre-pipeline count by user, type
 Partner pipeline count by user, type
 Partner pipeline value by user, type
+All Product Renewals by Month
+Product contracts terminated and not replaced (all time/cal yr) - financial
+Product contracts terminated and not replaced (all time/FY) - financial
+Product contracts terminated and replaced (all time/cal yr) - financial
+Product contracts terminated and replaced (all time/FY) - financial

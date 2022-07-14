@@ -11,6 +11,64 @@ public class ContentWrapper {
 
     String chart_type;
 
+    List<SummaryColumn> summary_columns = new ArrayList<>();
+
+    class SummaryColumn{
+        String name;
+        String label;
+        String column_function;
+        String qualifier;
+        String table_key;
+        String group_function;
+
+        public String getGroup_function() {
+            return group_function;
+        }
+
+        public void setGroup_function(String group_function) {
+            this.group_function = group_function;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public String getLabel() {
+            return label;
+        }
+
+        public void setLabel(String label) {
+            this.label = label;
+        }
+
+        public String getColumn_function() {
+            return column_function;
+        }
+
+        public void setColumn_function(String column_function) {
+            this.column_function = column_function;
+        }
+
+        public String getQualifier() {
+            return qualifier;
+        }
+
+        public void setQualifier(String qualifier) {
+            this.qualifier = qualifier;
+        }
+
+        public String getTable_key() {
+            return table_key;
+        }
+
+        public void setTable_key(String table_key) {
+            this.table_key = table_key;
+        }
+    }
     class GroupDef{
         String name;
         String label;

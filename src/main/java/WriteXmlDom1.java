@@ -37,12 +37,12 @@ public class WriteXmlDom1 {
                 .filter(file -> !file.isDirectory())
                 .map(File::getName)
                 .collect(Collectors.toSet());
-//        for(String jsonPath : names){
-//            json2xml("src//data//json//" + jsonPath);
-//        }
+        for(String jsonPath : names){
+            json2xml("src//data//json//" + jsonPath);
+        }
 
 //        json2xml("src//data//json//Opportunity Data for Board.json");
-        json2xml("src//data//json//Partner Review, Acct Oppty listing.json");
+//        json2xml("src//data//json//Partner Review, Acct Oppty listing.json");
 //        json2xml("src//data//json//Tyler's FY23 Attainment (All Products) vs $450k.json");
 //        json2xml("src//data//json//Bill's pipeline.json");
 //        json2xml("src//data//json//Closed count by month and product service (last this FQ).json");
@@ -52,8 +52,13 @@ public class WriteXmlDom1 {
 //        json2xml("src//data//json//KJ DATA CLEANUP  Accounts to be reassigned.json");
 //        json2xml("src//data//json//KJ DATA CLEANUP  Opportunities key fields check (Bill).json");
 //        json2xml("src//data//json//KJ DATA CLEANUP  Opportunities key fields check (Pat).json");
-        json2xml("src//data//json//NA End User JDE Accounts w Contacts.json");
-        json2xml("src//data//json//Non-NA End User JDE Accounts w Contacts.json");
+//        json2xml("src//data//json//NA End User JDE Accounts w Contacts.json");
+//        json2xml("src//data//json//Non-NA End User JDE Accounts w Contacts.json");
+//        json2xml("src//data//json//LogiGear, REVENUE last 60 days.json");
+//        json2xml("src//data//json//Closed won values FY21, FQ type.json");
+//        json2xml("src//data//json//Annual Product Renewals by Month.json");
+//        json2xml("src//data//json//ARR Tempo pipeline by month.json");
+        json2xml("src//data//json//Closed count by month and user (last this fiscal qtr).json");
     }
 
 
@@ -101,45 +106,97 @@ public class WriteXmlDom1 {
         //chart
         try {
             String chartType = content.chart_type;
-            if (chartType.equals("vGBarF") || chartType.equals("funnelF")) {
+            if (chartType.equals("vGBarF") || chartType.equals("funnelF") || chartType.equals("vBarF")) {
                 List<String> chartColums = List.of(content.numerical_chart_column.split(":"));
                 if(chartColums.size() == 3){
-                String keyMap = getKeyMap(chartColums.get(1), chartColums.get(0), (String) map.get("module"));
-                List<String> rowRecords = rowMappingByKey.get(keyMap);
+                    // content.numerical_chart_column = self:yr1_net_contract_value_gbp_c:sum
+                    String keyMap = getKeyMap(chartColums.get(1), chartColums.get(0), (String) map.get("module"));
+                    List<String> rowRecords = rowMappingByKey.get(keyMap);
 
-                String operator = chartColums.get(2);
-                String groupingColumn = "";
-                Object groupDefs = content.group_defs;
-                if (groupDefs instanceof ArrayList) {
-                    groupingColumn = ((ArrayList<ContentWrapper.GroupDef>) groupDefs).get(0).getName();
-                    if ("ss_Sales_Targets".equals(map.get("module")) && groupingColumn.equals("start_date")) {
-                        groupingColumn = "Sales_Target__c$Fiscal_Year__c";
-                    } else {
-                        groupingColumn = rowMappingByKey.get(keyMap).get(1);
+                    String operator = chartColums.get(2);
+                    String groupingColumn = "";
+                    Object groupDefs = content.group_defs;
+                    if (groupDefs instanceof ArrayList) {;
+                        List<String> groupingColumns = new ArrayList<>();
+                        for(ContentWrapper.GroupDef group : content.group_defs) {
+                            if("Opportunities".equals(map.get("module")) && group.getName().equals("actual_close_date_c") && group.getColumn_function().equals("fiscalQuarter")){
+                                groupingColumns.add("Opportunity.Fiscal_Quarter_Closed_Date__c");
+                            }else if("Opportunities".equals(map.get("module")) && group.getName().equals("actual_close_date_c") && group.getColumn_function().equals("fiscalYear")){
+                                groupingColumns.add("Opportunity.Fiscal_Year_Close_Date__c");
+                            }else if("Opportunities".equals(map.get("module")) && group.getName().equals("actual_close_date_c") && group.getColumn_function().equals("quarter")){
+                                groupingColumns.add("Opportunity.Quarter_Close_Date__c");
+                            }else if("Opportunities".equals(map.get("module")) && group.getName().equals("actual_close_date_c") && group.getColumn_function().equals("month")){
+                                groupingColumns.add("Opportunity.Month_Close_Date__c");
+                            }else if("Opportunities".equals(map.get("module")) && group.getName().equals("date_closed") && group.getColumn_function().equals("fiscalQuarter")){
+                                groupingColumns.add("Opportunity.Fiscal_Quarter_Expected_Closed_Date__c");
+                            }else if("Opportunities".equals(map.get("module")) && group.getName().equals("date_closed") && group.getColumn_function().equals("week")){
+                                groupingColumns.add("Opportunity.Week_Expected_Close_Date__c");
+                            }else if("Opportunities".equals(map.get("module")) && group.getName().equals("date_closed") && group.getColumn_function().equals("month")){
+                                groupingColumns.add( "Opportunity.Month_Expected_Close_Date__c");
+                            }else if ("ss_Sales_Targets".equals(map.get("module")) && group.getName().equals("start_date")) {
+                                groupingColumns.add("Sales_Target__c$Fiscal_Year__c");
+                            } else {
+                                keyMap = getKeyMap(group.getName(), group.getTable_key(), (String) map.get("module"));
+                                groupingColumns.add(rowMappingByKey.get(keyMap).get(1));
+                            }
+                        }
+                        groupingColumn = String.join(";", groupingColumns);
                     }
-                }
-                String chartColumn = rowRecords.get(1);
-                createChart(chartColumn, operator, groupingColumn, chartType);
+                    String chartColumn = rowRecords.get(1);
+                    createChart(chartColumn, operator, groupingColumn, chartType, chartColums.get(2));
                 }else if(chartColums.size() == 2){
                     // @TODO: content.numerical_chart_column = self:count
-                    System.out.println("===> check here: report name: " + map.get("name"));
+//                    System.out.println("===> check here: report name: " + map.get("name"));
+
+                    String operator = chartColums.get(1);
+                    String groupingColumn = "";
+                    Object groupDefs = content.group_defs;
+                    if (groupDefs instanceof ArrayList) {;
+                        List<String> groupingColumns = new ArrayList<>();
+                        for(ContentWrapper.GroupDef group : content.group_defs) {
+                            if("Opportunities".equals(map.get("module")) && group.getName().equals("actual_close_date_c") && group.getColumn_function().equals("fiscalQuarter")){
+                                groupingColumns.add("Opportunity.Fiscal_Quarter_Closed_Date__c");
+                            }else if("Opportunities".equals(map.get("module")) && group.getName().equals("actual_close_date_c") && group.getColumn_function().equals("fiscalYear")){
+                                groupingColumns.add("Opportunity.Fiscal_Year_Close_Date");
+                            }else if("Opportunities".equals(map.get("module")) && group.getName().equals("actual_close_date_c") && group.getColumn_function().equals("quarter")){
+                                groupingColumns.add("Opportunity.Quarter_Close_Date__c");
+                            }else if("Opportunities".equals(map.get("module")) && group.getName().equals("actual_close_date_c") && group.getColumn_function().equals("month")){
+                                groupingColumns.add("Opportunity.Month_Close_Date__c");
+                            }else if("Opportunities".equals(map.get("module")) && group.getName().equals("date_closed") && group.getColumn_function().equals("fiscalQuarter")){
+                                groupingColumns.add("Opportunity.Fiscal_Quarter_Expected_Closed_Date__c");
+                            }else if("Opportunities".equals(map.get("module")) && group.getName().equals("date_closed") && group.getColumn_function().equals("week")){
+                                groupingColumns.add("Opportunity.Week_Expected_Close_Date__c");
+                            }else if("Opportunities".equals(map.get("module")) && group.getName().equals("date_closed") && group.getColumn_function().equals("month")){
+                                groupingColumns.add( "Opportunity.Month_Expected_Close_Date__c");
+                            }else if ("ss_Sales_Targets".equals(map.get("module")) && group.getName().equals("start_date")) {
+                                groupingColumns.add("Sales_Target__c$Fiscal_Year__c");
+                            } else {
+                                String keyMap = getKeyMap(group.getName(), group.getTable_key(), (String) map.get("module"));
+                                groupingColumns.add(rowMappingByKey.get(keyMap).get(1));
+                            }
+                        }
+                        groupingColumn = String.join(";", groupingColumns);
+                    }
+                    String chartColumn = "CREATED_DATE";
+                    createChart(chartColumn, operator, groupingColumn, chartType, chartColums.get(1));
+
                 }else{
                     // @TODO: exception, continue check
                     System.out.println("===> exception, continue check: report name: " + map.get("name"));
                 }
             }else if(chartType != null && !chartType.isBlank() && !chartType.equals("none")
-            && !chartType.equals("vGBarF") && !chartType.equals("funnelF")){
+            && !chartType.equals("vGBarF") && !chartType.equals("funnelF") && !chartType.equals("vBarF")){
                 // log report type need to handle
                 System.out.println("Check chart type: " + chartType);
             }
         }catch (Exception e){
-            System.out.println(e.getMessage());
+            System.out.println("===> loi ne. " + e.getMessage() + e.getStackTrace());
         }
 
         //name
         String reportName = (String)map.get("name");
         if(reportName.length() > 40) {
-            reportName = reportName.substring(0, 37) + " " + indexReportName;
+            reportName = reportName.substring(0, 36) + " " + indexReportName;
             indexReportName++;
         }
         createElement("name", reportName, reportElement);
@@ -166,7 +223,9 @@ public class WriteXmlDom1 {
         for (ContentWrapper.ColumnObj col: content.display_columns) {
             Boolean isSkip = false;
             for(ContentWrapper.GroupDef group_def : content.group_defs){
-                if(group_def.getName().equals(col.getName())){
+                if(group_def.getName().equals(col.getName()) ||
+                        (group_def.getName().equals("user_name") && col.getName().equals("full_name")) ||
+                        (group_def.getName().equals("full_name") && col.getName().equals("user_name"))){
                     isSkip = true;
                     break;
                 }
@@ -194,7 +253,16 @@ public class WriteXmlDom1 {
             List<String> rowRecords = rowMappingByKey.get(keyMap);
             if (rowRecords != null && rowRecords.size() == 2) {
                 totalColumn++;
-                createColumnElement(rowRecords.get(1));
+                String aggregateTypes = "";
+                for(ContentWrapper.SummaryColumn summaryColumn : content.summary_columns){
+                    if(col.getName().equals(summaryColumn.getName())){
+                        aggregateTypes = summaryColumn.getGroup_function();
+                        if(aggregateTypes.equals("avg")){
+                            aggregateTypes = "average";
+                        }
+                    }
+                }
+                createColumnElement(rowRecords.get(1), aggregateTypes);
             } else {
                 columnsNotMapped.add(keyMap);
             }
@@ -217,7 +285,6 @@ public class WriteXmlDom1 {
                 finalLogicFilter = String.join(" " + entry.getValue() + " ", logicFilter);
             }
         }
-        System.out.println(finalLogicFilter);
         booleanFilterElement.setTextContent(finalLogicFilter);
         // combine conditional
 
@@ -247,7 +314,10 @@ public class WriteXmlDom1 {
 
         Element filterElement = doc.createElement("filter");
         // combine conditional
-        filterElement.appendChild(booleanFilterElement);
+        if(!booleanFilterElement.getTextContent().isEmpty()){
+            filterElement.appendChild(booleanFilterElement);
+        }
+
         // combine conditional
 
         for(ContentWrapper.Filter filter : filters){
@@ -318,7 +388,8 @@ public class WriteXmlDom1 {
         reportElement.appendChild(scopeElement);
 
         Element showDetailsElement = doc.createElement("showDetails");
-        showDetailsElement.setTextContent("true");
+        String isShowDetail = content.display_columns.size() > 0 ? "true" : "false";
+        showDetailsElement.setTextContent(isShowDetail);
         reportElement.appendChild(showDetailsElement);
 
         Element showGrandTotalElement = doc.createElement("showGrandTotal");
@@ -342,9 +413,21 @@ public class WriteXmlDom1 {
                 .replace("*", "_")
                 .replace(",", "_")
                 .replace(" ", "_")
-                .replace("__", "_");
+                .replace("(", "_")
+                .replace(")", "_")
+                .replace("+", "_")
+                .replace(".", "_")
+                .replace("$", "usd")
+                .replace("£", "pound")
+                .replace("-", "_")
+                .replace("&", "_")
+                .replace("'", "_")
+                .replace("___", "_")
+                .replace("__", "_")
+                + ".report-meta.xml";
+        outputFileName = outputFileName.replace("_.", ".");
         try (FileOutputStream output =
-                     new FileOutputStream("src//data//xml//" + outputFileName + ".report-meta.xml")) {
+                     new FileOutputStream("src//data//xml//" + outputFileName)) {
             writeXml(doc, output);
         } catch (IOException | TransformerException e) {
             e.printStackTrace();
@@ -381,22 +464,30 @@ public class WriteXmlDom1 {
         return logicFilter;
     }
 
-    private static void createChart(String chartColumn, String operator, String groupingColumn, String chartType){
+    private static void createChart(String chartColumn, String operator, String groupingColumn, String chartType, String summaryType){
         Element chartElement = doc.createElement("chart");
         createElement("backgroundColor1", "#FFFFFF", chartElement);
         createElement("backgroundColor2", "#FFFFFF", chartElement);
         createElement("backgroundFadeDir", "Diagonal", chartElement);
 
         Element chartSummariesElement = doc.createElement("chartSummaries");
-        createElement("aggregate", operator, chartSummariesElement);
-        createElement("axisBinding", "y", chartSummariesElement);
-        createElement("column", chartColumn, chartSummariesElement);
+        if(summaryType.equalsIgnoreCase("sum")){
+            createElement("aggregate", operator, chartSummariesElement);
+            createElement("axisBinding", "y", chartSummariesElement);
+            createElement("column", chartColumn, chartSummariesElement);
+        }else if(summaryType.equalsIgnoreCase("count")){
+            createElement("axisBinding", "y", chartSummariesElement);
+            createElement("column", "RowCount", chartSummariesElement);
+        }
+
         chartElement.appendChild(chartSummariesElement);
 
         if(chartType.equals("vGBarF")){
             chartType = "VerticalColumn";
         }else if(chartType.equals("funnelF")){
             chartType = "Funnel";
+        }else if(chartType.equals("vBarF")){
+            chartType = "VerticalColumnStacked";
         }
         createElement("chartType", chartType, chartElement);
         createElement("enableHoverLabels", "false", chartElement);
@@ -407,13 +498,18 @@ public class WriteXmlDom1 {
             expandOthers = "false";
         }
         createElement("expandOthers", expandOthers, chartElement);
-
-        createElement("groupingColumn", groupingColumn, chartElement);
+        List<String> groupingColumns = List.of(groupingColumn.split(";"));
+        createElement("groupingColumn", groupingColumns.get(0), chartElement);
         if(chartType.equals("Funnel")){
             createElement("legendPosition", "Right", chartElement);
         }
 
         createElement("location", "CHART_TOP", chartElement);
+
+        if(chartType.equals("VerticalColumnStacked")){
+            createElement("secondaryGroupingColumn", groupingColumns.get(1), chartElement);
+        }
+
         createElement("showAxisLabels", "true", chartElement);
         createElement("showPercentage", "false", chartElement);
         createElement("showTotal", "false", chartElement);
@@ -438,11 +534,26 @@ public class WriteXmlDom1 {
         createElement("sortOrder", "Asc", groupingsDownElement);
         String keyMap = getKeyMap(groupDef.getName(), groupDef.getTable_key(), (String)map.get("module"));
         try{
-        if(rowMappingByKey.get(keyMap).get(1).equals("Sales_Target__c$Start_date__c")){
-            createElement("field", "Sales_Target__c$Fiscal_Year__c", groupingsDownElement);
-        }else{
-            createElement("field", rowMappingByKey.get(keyMap).get(1), groupingsDownElement);
-        }}catch (Exception e){
+            if(rowMappingByKey.get(keyMap).get(1).equals("Sales_Target__c$Start_date__c")){
+                createElement("field", "Sales_Target__c$Fiscal_Year__c", groupingsDownElement);
+            }else if("Opportunities".equals(map.get("module")) && groupDef.getName().equals("actual_close_date_c") && groupDef.getColumn_function().equals("fiscalQuarter")){
+                createElement("field", "Opportunity.Fiscal_Quarter_Closed_Date__c", groupingsDownElement);
+            }else if("Opportunities".equals(map.get("module")) && groupDef.getName().equals("actual_close_date_c") && groupDef.getColumn_function().equals("fiscalYear")){
+                createElement("field", "Opportunity.Fiscal_Year_Close_Date__c", groupingsDownElement);
+            }else if("Opportunities".equals(map.get("module")) && groupDef.getName().equals("actual_close_date_c") && groupDef.getColumn_function().equals("quarter")){
+                createElement("field", "Opportunity.Quarter_Close_Date__c", groupingsDownElement);
+            }else if("Opportunities".equals(map.get("module")) && groupDef.getName().equals("actual_close_date_c") && groupDef.getColumn_function().equals("month")){
+                createElement("field", "Opportunity.Month_Close_Date__c", groupingsDownElement);
+            }else if("Opportunities".equals(map.get("module")) && groupDef.getName().equals("date_closed") && groupDef.getColumn_function().equals("fiscalQuarter")){
+                createElement("field", "Opportunity.Fiscal_Quarter_Expected_Closed_Date__c", groupingsDownElement);
+            }else if("Opportunities".equals(map.get("module")) && groupDef.getName().equals("date_closed") && groupDef.getColumn_function().equals("week")){
+                createElement("field", "Opportunity.Week_Expected_Close_Date__c", groupingsDownElement);
+            }else if("Opportunities".equals(map.get("module")) && groupDef.getName().equals("date_closed") && groupDef.getColumn_function().equals("month")){
+                createElement("field", "Opportunity.Month_Expected_Close_Date__c", groupingsDownElement);
+            }else{
+                createElement("field", rowMappingByKey.get(keyMap).get(1), groupingsDownElement);
+            }
+        }catch (Exception e){
             System.out.println(e.getMessage());
         }
 
@@ -485,17 +596,38 @@ public class WriteXmlDom1 {
         if(operator.equals("")){
             System.out.println("==> check filter: " + filter.getQualifier_name());
         }
+        if("contains".equals(operator) && "Opportunity.ProductandServices__c".equals(rowMappingByKey.get(keyMap).get(1))){
+            operator = "includes";
+        }
         createElement("operator", operator, criteriaItemsElement);
         String value;
         if(filter.getInput_name0() instanceof  ArrayList){
-            value = String.join(",", (ArrayList)filter.getInput_name0());
-            value = value.replaceAll("1 Identified", "Interest");
-            value = value.replaceAll("2 Confirming", "Scoping");
-            value = value.replaceAll("3 Qualifying", "Scoping");
-            value = value.replaceAll("4 Proposing", "Proposal Sent");
-            value = value.replaceAll("5 Executing to Win", "Negotiation");
-            value = value.replaceAll("6 Contracting", "Contracting");
-            value = value.replaceAll("7 Closing", "Contracting");
+            List<String> inputName0Tmp = new ArrayList<>();
+            for(String inputName0 : (ArrayList<String>)filter.getInput_name0()){
+                inputName0 = inputName0.replaceAll("1 Identified", "Interest");
+                inputName0 = inputName0.replaceAll("2 Confirming", "Scoping");
+                inputName0 = inputName0.replaceAll("3 Qualifying", "Scoping");
+                inputName0 = inputName0.replaceAll("4 Proposing", "Proposal Sent");
+                inputName0 = inputName0.replaceAll("5 Executing to Win", "Negotiation");
+                inputName0 = inputName0.replaceAll("6 Contracting", "Contracting");
+                inputName0 = inputName0.replaceAll("7 Closing", "Contracting");
+                if(inputName0.equals("Dimension Tempo")){
+                    inputName0 = "Service - DT - Dimension Tempo";
+                }else if(inputName0.equals("Dimension SwifTest")){
+                    inputName0 = "Product - DS - Dimension SwifTest";
+                }else if(inputName0.equals("Dimension Focus")){
+                    inputName0 = "Product - DF - Dimension Focus";
+                }else if(inputName0.equals("Dimension LoadTest")){
+                    inputName0 = "Product - DL - Dimension LoadTest";
+                }
+                inputName0Tmp.add(inputName0);
+            }
+            value = String.join(",", inputName0Tmp);
+
+
+//            value = value.replaceAll("Dimension Focus and SwifTest", "Product - DF - Dimension Focus");
+//            value = value.replaceAll("Dimension Products All", "Product - DF - Dimension Focus");
+//            value = value.replaceAll("Dimension SwifTest and LoadTest", "Product - DF - Dimension Focus");
 
         }else{
             value = convertValue(filter.getInput_name0().toString(), filter.getQualifier_name());
@@ -636,8 +768,11 @@ public class WriteXmlDom1 {
         parentElement.appendChild(nameElement);
     }
 
-    private static void createColumnElement(String columnValue){
+    private static void createColumnElement(String columnValue, String aggregateTypes){
         Element columnElement = doc.createElement("columns");
+        if(!aggregateTypes.isEmpty()){
+            createElement("aggregateTypes",aggregateTypes, columnElement);
+        }
         createElement("field",columnValue, columnElement);
         reportElement.appendChild(columnElement);
 
